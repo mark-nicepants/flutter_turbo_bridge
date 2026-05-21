@@ -1,0 +1,4 @@
+# melos_managed_dependency_overrides: turbo_bridge_client
+dependency_overrides:
+  turbo_bridge_client:
+    path: ../turbo_bridge_client

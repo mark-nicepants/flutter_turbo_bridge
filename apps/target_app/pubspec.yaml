@@ -1,0 +1,19 @@
+name: benchmark_target_app
+description: Minimal Flutter app used as benchmark target for Turbo Bridge
+publish_to: none
+
+environment:
+  sdk: ^3.4.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  turbo_bridge:
+    path: ../../packages/turbo_bridge
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

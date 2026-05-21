@@ -1,0 +1,58 @@
+# Publish packages to pub.dev
+#
+# Triggered manually or on version tag push.
+# Packages are published in dependency order:
+#   1. turbo_bridge_client (no internal deps)
+#   2. turbo_bridge (no internal deps)
+#   3. turbo_bridge_mcp (depends on turbo_bridge_client)
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run (no actual publish)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write  # Required for pub.dev OIDC authentication
+
+jobs:
+  publish:
+    name: Publish packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: stable
+          cache: true
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Install Melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap
+        run: melos bootstrap
+
+      - name: Verify all tests pass
+        run: |
+          cd packages/turbo_bridge_client && dart test
+          cd ../turbo_bridge_mcp && dart test
+          cd ../../packages/turbo_bridge && flutter test
+
+      - name: Dry run publish
+        if: ${{ github.event.inputs.dry-run == 'true' || github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run != 'false' }}
+        run: melos publish --dry-run --yes
+
+      - name: Publish to pub.dev
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run == 'false') }}
+        run: melos publish --yes

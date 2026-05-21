@@ -1,0 +1,25 @@
+# Dart/Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+*.iml
+
+# Melos
+.melos/
+
+# IDE
+.idea/
+*.iml
+.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Benchmark output
+benchmark_results.json
+
+# Generated
+*.g.dart
+*.freezed.dart
