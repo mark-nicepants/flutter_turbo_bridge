@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
 import 'models/app_info.dart';
+import 'models/find_response.dart';
 import 'models/screenshot_result.dart';
 import 'models/tap_result.dart';
 import 'models/widget_node.dart';
@@ -56,8 +57,7 @@ class BridgeConnection {
 
     return ScreenshotResult(
       bytes: response.bodyBytes,
-      captureTimeMs:
-          int.tryParse(response.headers['x-capture-time-ms'] ?? '') ?? 0,
+      captureTimeMs: int.tryParse(response.headers['x-capture-time-ms'] ?? '') ?? 0,
       width: int.tryParse(response.headers['x-image-width'] ?? ''),
       height: int.tryParse(response.headers['x-image-height'] ?? ''),
       roundTripMs: sw.elapsedMilliseconds,
@@ -81,13 +81,11 @@ class BridgeConnection {
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Widget tree failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Widget tree failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final tree =
-        WidgetNode.fromJson(json['rootWidget'] as Map<String, dynamic>);
+    final tree = WidgetNode.fromJson(json['rootWidget'] as Map<String, dynamic>);
 
     return (
       tree: tree,
@@ -108,8 +106,7 @@ class BridgeConnection {
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Tap failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Tap failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -121,12 +118,109 @@ class BridgeConnection {
     final response = await _httpClient.get(Uri.parse('$_baseUrl/info'));
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'App info failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('App info failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return AppInfo.fromJson(json);
+  }
+
+  /// Inject a swipe gesture.
+  Future<TapResult> swipe(
+    double startX,
+    double startY,
+    double endX,
+    double endY, {
+    int steps = 10,
+  }) async {
+    final sw = Stopwatch()..start();
+
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/swipe'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({
+        'startX': startX,
+        'startY': startY,
+        'endX': endX,
+        'endY': endY,
+        'steps': steps,
+      }),
+    );
+    sw.stop();
+
+    if (response.statusCode != 200) {
+      throw BridgeException('Swipe failed: ${response.statusCode} ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return TapResult.fromJson(json, sw.elapsedMilliseconds);
+  }
+
+  /// Inject a scroll gesture at coordinates.
+  Future<TapResult> scroll(double x, double y, {double dx = 0, required double dy}) async {
+    final sw = Stopwatch()..start();
+
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/scroll'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'x': x, 'y': y, 'dx': dx, 'dy': dy}),
+    );
+    sw.stop();
+
+    if (response.statusCode != 200) {
+      throw BridgeException('Scroll failed: ${response.statusCode} ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return TapResult.fromJson(json, sw.elapsedMilliseconds);
+  }
+
+  /// Enter text into the currently focused text field.
+  Future<TapResult> enterText(String text, {bool replace = false}) async {
+    final sw = Stopwatch()..start();
+
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/input'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'text': text, 'replace': replace}),
+    );
+    sw.stop();
+
+    if (response.statusCode != 200) {
+      throw BridgeException('Enter text failed: ${response.statusCode} ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return TapResult.fromJson(json, sw.elapsedMilliseconds);
+  }
+
+  /// Find widgets server-side by text, key, or type.
+  Future<FindResponse> find({
+    String? text,
+    String? key,
+    String? type,
+    int limit = 10,
+  }) async {
+    final sw = Stopwatch()..start();
+
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/find'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({
+        if (text != null) 'text': text,
+        if (key != null) 'key': key,
+        if (type != null) 'type': type,
+        'limit': limit,
+      }),
+    );
+    sw.stop();
+
+    if (response.statusCode != 200) {
+      throw BridgeException('Find failed: ${response.statusCode} ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return FindResponse.fromJson(json, sw.elapsedMilliseconds);
   }
 
   /// Close the HTTP client connection.

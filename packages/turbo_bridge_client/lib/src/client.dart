@@ -1,5 +1,6 @@
 import 'bridge_connection.dart';
 import 'models/app_info.dart';
+import 'models/find_response.dart';
 import 'models/screenshot_result.dart';
 import 'models/tap_result.dart';
 import 'models/widget_node.dart';
@@ -55,8 +56,7 @@ class TurboBridgeClient {
   }
 
   /// Get the widget tree with timing metadata.
-  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})>
-      widgetTreeWithTiming({
+  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})> widgetTreeWithTiming({
     int depth = 10,
   }) {
     return _bridge.widgetTree(depth: depth);
@@ -97,13 +97,45 @@ class TurboBridgeClient {
     return _bridge.appInfo();
   }
 
+  /// Inject a swipe gesture from start to end coordinates.
+  Future<TapResult> swipe(
+    double startX,
+    double startY,
+    double endX,
+    double endY, {
+    int steps = 10,
+  }) {
+    return _bridge.swipe(startX, startY, endX, endY, steps: steps);
+  }
+
+  /// Inject a scroll gesture at the given position.
+  ///
+  /// Positive [dy] scrolls content up (finger moves up); negative scrolls down.
+  Future<TapResult> scroll(double x, double y, {double dx = 0, required double dy}) {
+    return _bridge.scroll(x, y, dx: dx, dy: dy);
+  }
+
+  /// Enter text into the currently focused text field.
+  ///
+  /// If [replace] is true, replaces existing text; otherwise appends.
+  Future<TapResult> enterText(String text, {bool replace = false}) {
+    return _bridge.enterText(text, replace: replace);
+  }
+
+  /// Find widgets server-side by text, key, or type.
+  ///
+  /// More efficient than fetching the full tree when you only need
+  /// specific widget locations.
+  Future<FindResponse> find({String? text, String? key, String? type, int limit = 10}) {
+    return _bridge.find(text: text, key: key, type: type, limit: limit);
+  }
+
   /// Evaluate a Dart expression via VM Service.
   ///
   /// Requires [connectVmService] to be called first.
   Future<String> evaluate(String expression) async {
     if (_vmService == null || !_vmService.isConnected) {
-      throw StateError(
-          'VM Service not connected. Call connectVmService() first.');
+      throw StateError('VM Service not connected. Call connectVmService() first.');
     }
     final result = await _vmService.evaluate(expression);
     return result.json?['valueAsString']?.toString() ?? result.toString();

@@ -19,6 +19,15 @@ An LLM connected via this server can:
 
 1. A Flutter app with `turbo_bridge` running (see [turbo_bridge](../turbo_bridge/))
 2. An MCP-compatible LLM host
+3. Dart SDK (comes with Flutter)
+
+### Quick Install
+
+```bash
+# Clone the repo (one-time setup)
+git clone https://github.com/mark-nicepants/flutter_turbo_bridge.git
+cd flutter_turbo_bridge && dart pub get --directory=packages/turbo_bridge_mcp
+```
 
 ### Claude Desktop
 
@@ -31,27 +40,49 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "command": "dart",
       "args": [
         "run",
-        "/path/to/flutter_turbo_bridge/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart",
-        "--bridge-host", "localhost",
-        "--bridge-port", "8888"
+        "/absolute/path/to/flutter_turbo_bridge/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
       ]
     }
   }
 }
 ```
 
-### VS Code / Cursor
+> **Note:** Claude Desktop requires absolute paths. Use the path from `install.sh` output or your clone location.
 
-Add to your MCP settings:
+### VS Code (GitHub Copilot)
+
+Add to `.vscode/mcp.json` in your project (committable to version control):
 
 ```json
 {
-  "flutter": {
-    "command": "dart",
-    "args": [
-      "run",
-      "/path/to/flutter_turbo_bridge/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
-    ]
+  "servers": {
+    "flutter": {
+      "command": "dart",
+      "args": [
+        "run",
+        "packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
+      ]
+    }
+  }
+}
+```
+
+> **Tip:** Uses a relative path from the workspace root. Works when this repo is cloned as a submodule or when working directly in this monorepo.
+
+### Cursor
+
+Add to `.cursor/mcp.json` in your project (committable):
+
+```json
+{
+  "mcpServers": {
+    "flutter": {
+      "command": "dart",
+      "args": [
+        "run",
+        "packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
+      ]
+    }
   }
 }
 ```
@@ -112,6 +143,41 @@ Searches the widget tree by text, key, or type. Returns matching widgets with th
 
 **Returns:** Up to 10 matching widgets with bounds and center coordinates
 
+### `flutter_swipe`
+
+Performs a swipe gesture between two points.
+
+**Parameters:**
+- `startX` (number, required) — Start X coordinate
+- `startY` (number, required) — Start Y coordinate
+- `endX` (number, required) — End X coordinate
+- `endY` (number, required) — End Y coordinate
+- `steps` (number, optional) — Number of move events, default 10
+
+**Returns:** Success status and timing
+
+### `flutter_scroll`
+
+Scrolls at a specific position.
+
+**Parameters:**
+- `x` (number, required) — Scroll position X
+- `y` (number, required) — Scroll position Y
+- `dy` (number, optional) — Vertical scroll delta (negative = down)
+- `dx` (number, optional) — Horizontal scroll delta
+
+**Returns:** Success status and timing
+
+### `flutter_enter_text`
+
+Enters text into the currently focused text field.
+
+**Parameters:**
+- `text` (string, required) — Text to enter
+- `replace` (boolean, optional) — Replace existing text, default false
+
+**Returns:** Success status and timing
+
 ## MCP Resources
 
 ### `flutter://app/info`
@@ -138,6 +204,12 @@ Once connected, you can ask the LLM things like:
 > "Take a screenshot of the app and tell me what you see"
 
 > "Find the login button and tap it"
+
+> "Scroll down in the list to find item 50"
+
+> "Swipe left to dismiss the notification"
+
+> "Enter 'hello@example.com' in the email field"
 
 > "Inspect the widget tree and describe the navigation structure"
 

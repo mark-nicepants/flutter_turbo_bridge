@@ -1,4 +1,4 @@
-# Implementation Plan — Phase 1 MVP
+# Implementation Plan — Phase 1 MVP + Phase 2 Enhanced
 
 ## Architecture Overview
 
@@ -87,6 +87,7 @@ flutter_turbo_bridge/
 │   │   │           ├── screenshot_service.dart
 │   │   │           ├── widget_tree_service.dart
 │   │   │           ├── gesture_service.dart
+│   │   │           ├── find_service.dart
 │   │   │           └── app_info_service.dart
 │   │   └── test/
 │   │
@@ -115,7 +116,10 @@ flutter_turbo_bridge/
 │       │       │   ├── widget_tree_tool.dart
 │       │       │   ├── tap_tool.dart
 │       │       │   ├── app_info_tool.dart
-│       │       │   └── find_widget_tool.dart
+│       │       │   ├── find_widget_tool.dart
+│       │       │   ├── swipe_tool.dart
+│       │       │   ├── scroll_tool.dart
+│       │       │   └── enter_text_tool.dart
 │       │       ├── resources/
 │       │       │   ├── app_info_resource.dart
 │       │       │   └── widget_tree_resource.dart
@@ -149,10 +153,17 @@ Priority order (by impact on AI feedback loop):
 
 3. **GestureService** — Inject pointer events
    - Use `WidgetsBinding.instance.handlePointerEvent()`
-   - Support: tap (down+up), long press, swipe sequence
+   - Support: tap (down+up), swipe, scroll, text input
+   - Synchronous dispatch for speed (unique pointer IDs per gesture)
    - Target: <10ms per gesture
 
-4. **AppInfoService** — Static app metadata
+4. **FindService** — Server-side widget lookup (Phase 2)
+   - Walk Element tree, match by ValueKey, text content, or widget type
+   - Case-insensitive substring match for text (AI-friendly)
+   - Returns center coordinates and bounds for tapping
+   - Target: <10ms for typical search
+
+5. **AppInfoService** — Static app metadata
    - Screen size, pixel ratio, platform, dark mode, route
    - Cached, near-zero cost
 
@@ -162,6 +173,10 @@ Priority order (by impact on AI feedback loop):
   - `GET /screenshot` → PNG bytes (Content-Type: image/png)
   - `GET /tree?depth=10` → JSON widget tree
   - `POST /tap` → `{x, y}` body → inject tap
+  - `POST /swipe` → `{startX, startY, endX, endY, steps}` → swipe gesture
+  - `POST /scroll` → `{x, y, dx, dy, steps}` → scroll gesture
+  - `POST /input` → `{text, replace}` → text entry
+  - `GET /find?text=Login` or `POST /find` → find widgets by text/key/type
   - `GET /info` → app metadata JSON
   - `GET /health` → connection status
 

@@ -12,11 +12,15 @@
 | Operation | p50 | p95 | p99 | Target | Status |
 |-----------|-----|-----|-----|--------|--------|
 | health | 0ms | 1ms | 1ms | 10ms | ✓ |
-| screenshot | 13ms | 13ms | 16ms | 50ms | ✓ |
+| screenshot | 12ms | 13ms | 13ms | 50ms | ✓ |
 | widget_tree | 0ms | 1ms | 1ms | 40ms | ✓ |
-| tap | 0ms | 0ms | 1ms | 30ms | ✓ |
+| tap | 1ms | 1ms | 1ms | 30ms | ✓ |
+| swipe | 0ms | 1ms | 1ms | 30ms | ✓ |
+| scroll | 0ms | 1ms | 1ms | 30ms | ✓ |
+| find | 1ms | 1ms | 1ms | 20ms | ✓ |
+| enter_text | 0ms | 0ms | 1ms | 30ms | ✓ |
 | app_info | 0ms | 0ms | 0ms | 10ms | ✓ |
-| **full_loop** | **14ms** | **16ms** | **17ms** | **100ms** | **✓** |
+| **full_loop** | **14ms** | **15ms** | **28ms** | **100ms** | **✓** |
 
 ### Full Loop = screenshot + widget tree + tap (sequential)
 

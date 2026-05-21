@@ -8,6 +8,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'bridge_config.dart';
 import 'server/router.dart';
 import 'services/app_info_service.dart';
+import 'services/find_service.dart';
 import 'services/gesture_service.dart';
 import 'services/screenshot_service.dart';
 import 'services/widget_tree_service.dart';
@@ -21,19 +22,19 @@ class TurboBridge {
     WidgetTreeService? widgetTreeService,
     GestureService? gestureService,
     AppInfoService? appInfoService,
+    FindService? findService,
   })  : screenshotService = screenshotService ?? ScreenshotService(),
-        widgetTreeService = widgetTreeService ??
-            WidgetTreeService(defaultDepth: config.defaultTreeDepth),
+        widgetTreeService = widgetTreeService ?? WidgetTreeService(defaultDepth: config.defaultTreeDepth),
         gestureService = gestureService ?? GestureService(),
-        appInfoService = appInfoService ?? AppInfoService();
+        appInfoService = appInfoService ?? AppInfoService(),
+        findService = findService ?? FindService();
 
   static TurboBridge? _instance;
 
   /// Singleton instance. Call [start] to initialize.
   static TurboBridge get instance {
     if (_instance == null) {
-      throw StateError(
-          'TurboBridge not initialized. Call TurboBridge.start() first.');
+      throw StateError('TurboBridge not initialized. Call TurboBridge.start() first.');
     }
     return _instance!;
   }
@@ -53,6 +54,9 @@ class TurboBridge {
   /// Service for app metadata.
   final AppInfoService appInfoService;
 
+  /// Service for finding widgets in the element tree.
+  final FindService findService;
+
   HttpServer? _server;
 
   /// Whether the server is currently running.
@@ -71,6 +75,7 @@ class TurboBridge {
     WidgetTreeService? widgetTreeService,
     GestureService? gestureService,
     AppInfoService? appInfoService,
+    FindService? findService,
     bool ensureInitialized = true,
   }) async {
     if (_instance != null && _instance!.isRunning) {
@@ -87,6 +92,7 @@ class TurboBridge {
       widgetTreeService: widgetTreeService,
       gestureService: gestureService,
       appInfoService: appInfoService,
+      findService: findService,
     );
 
     await bridge._startServer();
@@ -102,6 +108,7 @@ class TurboBridge {
     WidgetTreeService? widgetTreeService,
     GestureService? gestureService,
     AppInfoService? appInfoService,
+    FindService? findService,
   }) {
     final bridge = TurboBridge._(
       config: config,
@@ -109,6 +116,7 @@ class TurboBridge {
       widgetTreeService: widgetTreeService,
       gestureService: gestureService,
       appInfoService: appInfoService,
+      findService: findService,
     );
     _instance = bridge;
     return bridge;
@@ -120,16 +128,14 @@ class TurboBridge {
       widgetTreeService: widgetTreeService,
       gestureService: gestureService,
       appInfoService: appInfoService,
+      findService: findService,
       includeTimingHeaders: config.includeTimingHeaders,
     );
 
-    final handler = const shelf.Pipeline()
-        .addMiddleware(shelf.logRequests())
-        .addHandler(router.handler);
+    final handler = const shelf.Pipeline().addMiddleware(shelf.logRequests()).addHandler(router.handler);
 
     _server = await shelf_io.serve(handler, config.host, config.port);
-    debugPrint(
-        'TurboBridge listening on http://${config.host}:${_server!.port}');
+    debugPrint('TurboBridge listening on http://${config.host}:${_server!.port}');
   }
 
   /// Stop the server and clean up resources.

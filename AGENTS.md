@@ -78,7 +78,15 @@ Every new feature follows this lifecycle:
 2. Run `dart test` in the affected package — all pass
 3. If you changed a public API, update `docs/IMPLEMENTATION_PLAN.md`
 4. If you changed scope/deliverables, update `docs/ROADMAP.md`
-5. Run the benchmark if you changed anything in `turbo_bridge` or `turbo_bridge_client`
+5. Run the benchmark locally against a macOS debug build if you changed anything in `turbo_bridge` or `turbo_bridge_client`:
+   ```bash
+   # Terminal 1: Start target app
+   cd apps/target_app && flutter run -d macos --debug
+   
+   # Terminal 2: Run benchmark (bridge-only is sufficient for most changes)
+   cd apps/benchmark && dart run bin/benchmark.dart --bridge-only -p 8888 -n 50
+   ```
+   All benchmarks must pass (10/10) before considering the change complete.
 
 ## Code Guidelines
 

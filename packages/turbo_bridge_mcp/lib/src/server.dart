@@ -5,8 +5,11 @@ import 'prompts/inspect_prompt.dart';
 import 'resources/app_info_resource.dart';
 import 'resources/widget_tree_resource.dart';
 import 'tools/app_info_tool.dart';
+import 'tools/enter_text_tool.dart';
 import 'tools/find_widget_tool.dart';
 import 'tools/screenshot_tool.dart';
+import 'tools/scroll_tool.dart';
+import 'tools/swipe_tool.dart';
 import 'tools/tap_tool.dart';
 import 'tools/widget_tree_tool.dart';
 
@@ -20,7 +23,7 @@ McpServer createMcpServer({
   final server = McpServer(
     Implementation(
       name: 'flutter-turbo-bridge',
-      version: '0.1.0',
+      version: '0.2.0',
     ),
     options: McpServerOptions(
       capabilities: ServerCapabilities(
@@ -35,6 +38,9 @@ McpServer createMcpServer({
   registerScreenshotTool(server, client);
   registerWidgetTreeTool(server, client);
   registerTapTool(server, client);
+  registerSwipeTool(server, client);
+  registerScrollTool(server, client);
+  registerEnterTextTool(server, client);
   registerAppInfoTool(server, client);
   registerFindWidgetTool(server, client);
 

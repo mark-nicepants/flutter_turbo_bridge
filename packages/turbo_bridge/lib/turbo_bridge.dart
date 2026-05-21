@@ -16,6 +16,7 @@ library turbo_bridge;
 export 'src/bridge.dart';
 export 'src/bridge_config.dart';
 export 'src/services/app_info_service.dart';
+export 'src/services/find_service.dart';
 export 'src/services/gesture_service.dart';
 export 'src/services/screenshot_service.dart';
 export 'src/services/widget_tree_service.dart';

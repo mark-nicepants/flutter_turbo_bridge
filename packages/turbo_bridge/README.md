@@ -16,6 +16,12 @@ dependencies:
       path: packages/turbo_bridge
 ```
 
+Or use the CLI:
+
+```bash
+flutter pub add turbo_bridge --git-url=https://github.com/mark-nicepants/flutter_turbo_bridge.git --git-path=packages/turbo_bridge
+```
+
 ## Usage
 
 ```dart
@@ -103,6 +109,75 @@ Returns app metadata.
 
 Health check endpoint. Returns `200 OK` when the server is running.
 
+### `POST /swipe`
+
+Injects a swipe gesture between two points.
+
+**Body** (JSON):
+```json
+{ "startX": 200, "startY": 600, "endX": 200, "endY": 200, "steps": 10 }
+```
+
+**Response**:
+```json
+{ "success": true, "durationMs": 5 }
+```
+
+### `POST /scroll`
+
+Injects a scroll gesture at the given position.
+
+**Body** (JSON):
+```json
+{ "x": 200, "y": 400, "dx": 0, "dy": -200, "steps": 5 }
+```
+
+**Response**:
+```json
+{ "success": true, "durationMs": 3 }
+```
+
+### `POST /input`
+
+Injects text into the currently focused text field.
+
+**Body** (JSON):
+```json
+{ "text": "hello@example.com", "replace": true }
+```
+
+**Response**:
+```json
+{ "success": true, "durationMs": 1 }
+```
+
+### `GET /find` or `POST /find`
+
+Finds widgets by text, key, or type. Returns matching widgets with coordinates.
+
+**Parameters** (query params or JSON body):
+- `text` — Find by text content (substring match, case-insensitive)
+- `key` — Find by ValueKey
+- `type` — Find by widget type name
+- `limit` — Max results (default 10)
+
+**Response**:
+```json
+{
+  "found": true,
+  "count": 2,
+  "results": [
+    {
+      "type": "Text",
+      "text": "Submit",
+      "center": { "x": 195.0, "y": 422.0 },
+      "bounds": { "x": 100.0, "y": 400.0, "width": 190.0, "height": 44.0 }
+    }
+  ],
+  "searchTimeMs": 2
+}
+```
+
 ## Architecture
 
 The bridge runs an in-process HTTP server using [shelf](https://pub.dev/packages/shelf). All operations execute on the main isolate with direct access to Flutter's rendering pipeline — no IPC, no serialization overhead.
@@ -116,7 +191,8 @@ The bridge runs an in-process HTTP server using [shelf](https://pub.dev/packages
 │  │  ├── shelf HTTP server (:8888)        │  │
 │  │  ├── ScreenshotService (RenderView)   │  │
 │  │  ├── WidgetTreeService (Element tree) │  │
-│  │  ├── GestureService (GestureBinding)  │  │
+│  │  ├── GestureService (tap/swipe/scroll)│  │
+│  │  ├── FindService (widget lookup)      │  │
 │  │  └── AppInfoService (MediaQuery)      │  │
 │  └───────────────────────────────────────┘  │
 └─────────────────────────────────────────────┘

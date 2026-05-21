@@ -18,6 +18,7 @@ library turbo_bridge_client;
 export 'src/bridge_connection.dart';
 export 'src/client.dart';
 export 'src/models/app_info.dart';
+export 'src/models/find_response.dart';
 export 'src/models/screenshot_result.dart';
 export 'src/models/tap_result.dart';
 export 'src/models/widget_node.dart';

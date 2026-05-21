@@ -12,6 +12,12 @@ dependencies:
       path: packages/turbo_bridge_client
 ```
 
+Or use the CLI:
+
+```bash
+dart pub add turbo_bridge_client --git-url=https://github.com/mark-nicepants/flutter_turbo_bridge.git --git-path=packages/turbo_bridge_client
+```
+
 ## Quick Start
 
 ```dart
@@ -114,6 +120,34 @@ final result = await client.tapByText('Login');
 
 // Find widget by key and tap its center
 final result = await client.tapByKey('submit_btn');
+
+// Swipe between two points
+await client.swipe(200, 600, 200, 200); // startX, startY, endX, endY
+
+// Scroll at a position
+await client.scroll(200, 400, dy: -200); // scroll up
+
+// Enter text into focused field
+await client.enterText('hello@example.com');
+await client.enterText('new value', replace: true); // replace existing text
+```
+
+### Find Widgets (Server-Side)
+
+```dart
+// Search by text content
+final results = await client.find(text: 'Login');
+results.found;   // bool
+results.count;   // int
+for (final widget in results.results) {
+  print('${widget.type} at (${widget.center.$1}, ${widget.center.$2})');
+}
+
+// Search by key
+final results = await client.find(key: 'submit_button');
+
+// Search by type
+final results = await client.find(type: 'ElevatedButton');
 ```
 
 ### App Info

@@ -60,16 +60,24 @@ Enable AI/LLM agents to interact with Flutter apps at near-human speed (<100ms p
    - Diff-based updates (only send changes)
 
 2. **Element finder** — Find widgets by text, key, type, semantics
-   - `findByText("Login")` → returns tap coordinates
-   - `findByKey("submit_button")` → returns element bounds
-   - Fuzzy matching for AI imprecision
+   - [x] `find(text: "Login")` → returns tap coordinates
+   - [x] `find(key: "submit_button")` → returns element bounds
+   - [x] Substring matching (case-insensitive) for AI imprecision
 
 3. **Gesture library** — Complex gesture support
-   - Swipe, long-press, drag, scroll
-   - Text input injection
-   - Multi-gesture sequences
+   - [x] Swipe (synchronous, configurable steps)
+   - [x] Scroll (vertical/horizontal with delta control)
+   - [x] Text input injection (with replace mode)
+   - [ ] Long-press, drag
+   - [ ] Multi-gesture sequences
 
-4. **VM Service integration** — Direct evaluation bridge
+4. **MCP integration** — Full LLM tool coverage
+   - [x] `flutter_swipe` tool
+   - [x] `flutter_scroll` tool
+   - [x] `flutter_enter_text` tool
+   - [x] `find_widget` tool with coordinates
+
+5. **VM Service integration** — Direct evaluation bridge
    - Hot reload trigger
    - State inspection
    - Error stream forwarding
@@ -120,8 +128,8 @@ Enable AI/LLM agents to interact with Flutter apps at near-human speed (<100ms p
 
 | Phase | Duration | Status |
 |-------|----------|--------|
-| Phase 1: MVP | 2-3 weeks | 🔄 In Progress |
-| Phase 2: Enhanced | 2-3 weeks | ⏳ Planned |
+| Phase 1: MVP | 2-3 weeks | ✅ Complete |
+| Phase 2: Enhanced | 2-3 weeks | 🔄 In Progress |
 | Phase 3: Web Dashboard | 2-3 weeks | ⏳ Planned |
 | Phase 4: Production | 2-3 weeks | ⏳ Planned |
 

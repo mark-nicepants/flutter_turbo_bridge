@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shelf/shelf.dart';
 
 import '../services/app_info_service.dart';
+import '../services/find_service.dart';
 import '../services/gesture_service.dart';
 import '../services/screenshot_service.dart';
 import '../services/widget_tree_service.dart';
@@ -16,6 +17,7 @@ class BridgeRouter {
   final WidgetTreeService widgetTreeService;
   final GestureService gestureService;
   final AppInfoService appInfoService;
+  final FindService findService;
   final bool includeTimingHeaders;
 
   BridgeRouter({
@@ -23,6 +25,7 @@ class BridgeRouter {
     required this.widgetTreeService,
     required this.gestureService,
     required this.appInfoService,
+    required this.findService,
     this.includeTimingHeaders = true,
   });
 
@@ -38,6 +41,11 @@ class BridgeRouter {
         ('GET', 'screenshot') => await _handleScreenshot(request),
         ('GET', 'tree') => _handleTree(request),
         ('POST', 'tap') => await _handleTap(request),
+        ('POST', 'swipe') => await _handleSwipe(request),
+        ('POST', 'scroll') => await _handleScroll(request),
+        ('POST', 'input') => await _handleInput(request),
+        ('GET', 'find') => _handleFind(request),
+        ('POST', 'find') => await _handleFindPost(request),
         ('GET', 'info') => _handleInfo(request),
         ('GET', 'health') => _handleHealth(),
         _ => Response.notFound('Not found: $method /$path'),
@@ -54,16 +62,14 @@ class BridgeRouter {
   Future<Response> _handleScreenshot(Request request) async {
     final sw = Stopwatch()..start();
 
-    final pixelRatio =
-        double.tryParse(request.url.queryParameters['pixelRatio'] ?? '') ?? 1.0;
+    final pixelRatio = double.tryParse(request.url.queryParameters['pixelRatio'] ?? '') ?? 1.0;
 
     final bytes = await screenshotService.capture(pixelRatio: pixelRatio);
     sw.stop();
 
     if (bytes == null) {
       return Response(503,
-          body: jsonEncode({'error': 'No render tree available'}),
-          headers: {'content-type': 'application/json'});
+          body: jsonEncode({'error': 'No render tree available'}), headers: {'content-type': 'application/json'});
     }
 
     final headers = <String, String>{
@@ -88,8 +94,7 @@ class BridgeRouter {
   Response _handleTree(Request request) {
     final sw = Stopwatch()..start();
 
-    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ??
-        widgetTreeService.defaultDepth;
+    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ?? widgetTreeService.defaultDepth;
     final compact = request.url.queryParameters['compact'] != 'false';
 
     final tree = widgetTreeService.capture(depth: depth, compact: compact);
@@ -97,8 +102,7 @@ class BridgeRouter {
 
     if (tree == null) {
       return Response(503,
-          body: jsonEncode({'error': 'No element tree available'}),
-          headers: {'content-type': 'application/json'});
+          body: jsonEncode({'error': 'No element tree available'}), headers: {'content-type': 'application/json'});
     }
 
     final body = jsonEncode({
@@ -141,8 +145,89 @@ class BridgeRouter {
 
   Response _handleHealth() {
     return Response.ok(
-      jsonEncode(
-          {'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
+      jsonEncode({'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Future<Response> _handleSwipe(Request request) async {
+    final body = await request.readAsString();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+
+    final startX = (json['startX'] as num).toDouble();
+    final startY = (json['startY'] as num).toDouble();
+    final endX = (json['endX'] as num).toDouble();
+    final endY = (json['endY'] as num).toDouble();
+    final steps = (json['steps'] as int?) ?? 10;
+
+    final result = gestureService.swipe(startX, startY, endX, endY, steps: steps);
+
+    return Response.ok(
+      jsonEncode(result.toJson()),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Future<Response> _handleScroll(Request request) async {
+    final body = await request.readAsString();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+
+    final x = (json['x'] as num).toDouble();
+    final y = (json['y'] as num).toDouble();
+    final dx = (json['dx'] as num?)?.toDouble() ?? 0;
+    final dy = (json['dy'] as num).toDouble();
+
+    final result = gestureService.scroll(x, y, dx: dx, dy: dy);
+
+    return Response.ok(
+      jsonEncode(result.toJson()),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Future<Response> _handleInput(Request request) async {
+    final body = await request.readAsString();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+
+    final text = json['text'] as String;
+    final replace = json['replace'] as bool? ?? false;
+
+    final result = await gestureService.enterText(text, replaceExisting: replace);
+
+    return Response.ok(
+      jsonEncode(result.toJson()),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Response _handleFind(Request request) {
+    final params = request.url.queryParameters;
+    final text = params['text'];
+    final key = params['key'];
+    final type = params['type'];
+    final limit = int.tryParse(params['limit'] ?? '') ?? 10;
+
+    final result = findService.find(text: text, key: key, type: type, limit: limit);
+
+    return Response.ok(
+      jsonEncode(result.toJson()),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Future<Response> _handleFindPost(Request request) async {
+    final body = await request.readAsString();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+
+    final text = json['text'] as String?;
+    final key = json['key'] as String?;
+    final type = json['type'] as String?;
+    final limit = json['limit'] as int? ?? 10;
+
+    final result = findService.find(text: text, key: key, type: type, limit: limit);
+
+    return Response.ok(
+      jsonEncode(result.toJson()),
       headers: {'content-type': 'application/json'},
     );
   }
