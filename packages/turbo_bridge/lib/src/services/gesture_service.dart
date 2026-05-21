@@ -47,8 +47,7 @@ class GestureService {
       ));
 
       sw.stop();
-      return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -62,8 +61,7 @@ class GestureService {
   /// Inject a long press at the given coordinates.
   ///
   /// This dispatches the full sequence synchronously with a scheduled up event.
-  GestureResult longPress(double x, double y,
-      {Duration duration = const Duration(milliseconds: 500)}) {
+  GestureResult longPress(double x, double y, {Duration duration = const Duration(milliseconds: 500)}) {
     final sw = Stopwatch()..start();
     try {
       final binding = WidgetsBinding.instance;
@@ -84,8 +82,7 @@ class GestureService {
       });
 
       sw.stop();
-      return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -136,8 +133,7 @@ class GestureService {
       ));
 
       sw.stop();
-      return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -152,8 +148,7 @@ class GestureService {
   ///
   /// [dx] and [dy] are the scroll delta in logical pixels.
   /// Positive [dy] scrolls down; negative scrolls up.
-  GestureResult scroll(double x, double y,
-      {double dx = 0, double dy = 0, int steps = 5}) {
+  GestureResult scroll(double x, double y, {double dx = 0, double dy = 0, int steps = 5}) {
     final sw = Stopwatch()..start();
     try {
       final binding = WidgetsBinding.instance;
@@ -183,8 +178,7 @@ class GestureService {
       ));
 
       sw.stop();
-      return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -199,8 +193,7 @@ class GestureService {
   ///
   /// If [replaceExisting] is true, clears the field before typing.
   /// Returns a failed result if no text field is currently focused.
-  Future<GestureResult> enterText(String text,
-      {bool replaceExisting = false}) async {
+  Future<GestureResult> enterText(String text, {bool replaceExisting = false}) async {
     final sw = Stopwatch()..start();
     try {
       // Use the binary messenger to simulate the platform sending text input
@@ -232,8 +225,7 @@ class GestureService {
       );
 
       sw.stop();
-      return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(

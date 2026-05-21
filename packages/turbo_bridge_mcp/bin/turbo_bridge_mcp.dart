@@ -64,8 +64,7 @@ void main(List<String> arguments) async {
   await server.connect(transport);
 
   final adbInfo = adbForwarded ? ', adb forwarded' : '';
-  stderr
-      .writeln('Turbo Bridge MCP server started (bridge=$host:$port$adbInfo)');
+  stderr.writeln('Turbo Bridge MCP server started (bridge=$host:$port$adbInfo)');
 
   // Clean up ADB forwarding on exit
   if (adbForwarded) {
@@ -100,10 +99,7 @@ Future<bool> _ensureBridgeReachable(String host, int port) async {
   }
 
   // Check if any Android device is connected
-  final lines = (adbCheck.stdout as String)
-      .split('\n')
-      .where((l) => l.contains('\tdevice'))
-      .toList();
+  final lines = (adbCheck.stdout as String).split('\n').where((l) => l.contains('\tdevice')).toList();
 
   if (lines.isEmpty) {
     stderr.writeln(
@@ -113,8 +109,7 @@ Future<bool> _ensureBridgeReachable(String host, int port) async {
   }
 
   // Set up ADB port forwarding
-  final result =
-      await Process.run('adb', ['forward', 'tcp:$port', 'tcp:$port']);
+  final result = await Process.run('adb', ['forward', 'tcp:$port', 'tcp:$port']);
   if (result.exitCode != 0) {
     stderr.writeln('ADB forward failed: ${result.stderr.toString().trim()}');
     return false;
