@@ -23,3 +23,6 @@ benchmark_results.json
 # Generated
 *.g.dart
 *.freezed.dart
+
+# Flutter metadata
+.metadata

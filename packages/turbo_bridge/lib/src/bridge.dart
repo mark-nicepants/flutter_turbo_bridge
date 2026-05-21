@@ -24,7 +24,8 @@ class TurboBridge {
     AppInfoService? appInfoService,
     FindService? findService,
   })  : screenshotService = screenshotService ?? ScreenshotService(),
-        widgetTreeService = widgetTreeService ?? WidgetTreeService(defaultDepth: config.defaultTreeDepth),
+        widgetTreeService = widgetTreeService ??
+            WidgetTreeService(defaultDepth: config.defaultTreeDepth),
         gestureService = gestureService ?? GestureService(),
         appInfoService = appInfoService ?? AppInfoService(),
         findService = findService ?? FindService();
@@ -34,7 +35,8 @@ class TurboBridge {
   /// Singleton instance. Call [start] to initialize.
   static TurboBridge get instance {
     if (_instance == null) {
-      throw StateError('TurboBridge not initialized. Call TurboBridge.start() first.');
+      throw StateError(
+          'TurboBridge not initialized. Call TurboBridge.start() first.');
     }
     return _instance!;
   }
@@ -132,10 +134,13 @@ class TurboBridge {
       includeTimingHeaders: config.includeTimingHeaders,
     );
 
-    final handler = const shelf.Pipeline().addMiddleware(shelf.logRequests()).addHandler(router.handler);
+    final handler = const shelf.Pipeline()
+        .addMiddleware(shelf.logRequests())
+        .addHandler(router.handler);
 
     _server = await shelf_io.serve(handler, config.host, config.port);
-    debugPrint('TurboBridge listening on http://${config.host}:${_server!.port}');
+    debugPrint(
+        'TurboBridge listening on http://${config.host}:${_server!.port}');
   }
 
   /// Stop the server and clean up resources.

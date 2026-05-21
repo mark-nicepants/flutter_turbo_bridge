@@ -97,7 +97,8 @@ class FindService {
           widgetText = widget.controller.text;
         }
 
-        if (widgetText != null && widgetText.toLowerCase().contains(text.toLowerCase())) {
+        if (widgetText != null &&
+            widgetText.toLowerCase().contains(text.toLowerCase())) {
           matched = true;
         }
       }

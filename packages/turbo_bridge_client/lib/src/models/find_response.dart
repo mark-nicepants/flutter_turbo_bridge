@@ -19,7 +19,8 @@ class FindResponse {
       found: json['found'] as bool,
       count: json['count'] as int,
       results: (json['results'] as List<dynamic>?)
-              ?.map((r) => FoundWidgetResult.fromJson(r as Map<String, dynamic>))
+              ?.map(
+                  (r) => FoundWidgetResult.fromJson(r as Map<String, dynamic>))
               .toList() ??
           const [],
       searchTimeMs: json['searchTimeMs'] as int? ?? 0,

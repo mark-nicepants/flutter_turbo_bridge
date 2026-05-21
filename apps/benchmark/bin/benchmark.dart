@@ -65,9 +65,13 @@ class BenchmarkResult {
   int get p50 => _percentile(50);
   int get p95 => _percentile(95);
   int get p99 => _percentile(99);
-  int get min => durationsMs.isEmpty ? 0 : durationsMs.reduce((a, b) => a < b ? a : b);
-  int get max => durationsMs.isEmpty ? 0 : durationsMs.reduce((a, b) => a > b ? a : b);
-  double get mean => durationsMs.isEmpty ? 0 : durationsMs.reduce((a, b) => a + b) / durationsMs.length;
+  int get min =>
+      durationsMs.isEmpty ? 0 : durationsMs.reduce((a, b) => a < b ? a : b);
+  int get max =>
+      durationsMs.isEmpty ? 0 : durationsMs.reduce((a, b) => a > b ? a : b);
+  double get mean => durationsMs.isEmpty
+      ? 0
+      : durationsMs.reduce((a, b) => a + b) / durationsMs.length;
 
   bool get meetsTarget => success && p95 <= targetMs;
 
@@ -139,8 +143,10 @@ BenchmarkResult _fail(String name, Object error) => BenchmarkResult(
 Future<void> main(List<String> args) async {
   final parser = ArgParser()
     ..addOption('vm-uri', abbr: 'u', help: 'VM Service WebSocket URI')
-    ..addOption('bridge-host', defaultsTo: '127.0.0.1', help: 'Turbo Bridge host')
-    ..addOption('bridge-port', abbr: 'p', defaultsTo: '8888', help: 'Turbo Bridge port')
+    ..addOption('bridge-host',
+        defaultsTo: '127.0.0.1', help: 'Turbo Bridge host')
+    ..addOption('bridge-port',
+        abbr: 'p', defaultsTo: '8888', help: 'Turbo Bridge port')
     ..addOption('iterations', abbr: 'n', defaultsTo: '$_defaultIterations')
     ..addFlag('vm-only', help: 'Only run VM Service benchmarks')
     ..addFlag('bridge-only', help: 'Only run Bridge benchmarks')
@@ -210,7 +216,10 @@ Future<void> main(List<String> args) async {
       print('  getVM()...');
       try {
         final d = await _bench(() => vmService!.getVM(), count: iterCount);
-        results.add(BenchmarkResult(name: 'vm_get_vm', durationsMs: d, targetMs: targets['vm_get_vm']!));
+        results.add(BenchmarkResult(
+            name: 'vm_get_vm',
+            durationsMs: d,
+            targetMs: targets['vm_get_vm']!));
       } catch (e) {
         results.add(_fail('vm_get_vm', e));
       }
@@ -218,8 +227,12 @@ Future<void> main(List<String> args) async {
       // getIsolate
       print('  getIsolate()...');
       try {
-        final d = await _bench(() => vmService!.getIsolate(isolateId!), count: iterCount);
-        results.add(BenchmarkResult(name: 'vm_get_isolate', durationsMs: d, targetMs: targets['vm_get_isolate']!));
+        final d = await _bench(() => vmService!.getIsolate(isolateId!),
+            count: iterCount);
+        results.add(BenchmarkResult(
+            name: 'vm_get_isolate',
+            durationsMs: d,
+            targetMs: targets['vm_get_isolate']!));
       } catch (e) {
         results.add(_fail('vm_get_isolate', e));
       }
@@ -233,8 +246,10 @@ Future<void> main(List<String> args) async {
           () => vmService!.evaluate(isolateId!, rootLib, '1 + 1'),
           count: iterCount,
         );
-        results
-            .add(BenchmarkResult(name: 'vm_evaluate_simple', durationsMs: d, targetMs: targets['vm_evaluate_simple']!));
+        results.add(BenchmarkResult(
+            name: 'vm_evaluate_simple',
+            durationsMs: d,
+            targetMs: targets['vm_evaluate_simple']!));
       } catch (e) {
         results.add(_fail('vm_evaluate_simple', e));
       }
@@ -253,7 +268,9 @@ Future<void> main(List<String> args) async {
           count: iterCount,
         );
         results.add(BenchmarkResult(
-            name: 'vm_evaluate_widget_tree', durationsMs: d, targetMs: targets['vm_evaluate_widget_tree']!));
+            name: 'vm_evaluate_widget_tree',
+            durationsMs: d,
+            targetMs: targets['vm_evaluate_widget_tree']!));
       } catch (e) {
         results.add(_fail('vm_evaluate_widget_tree', e));
       }
@@ -274,7 +291,9 @@ Future<void> main(List<String> args) async {
           count: iterCount,
         );
         results.add(BenchmarkResult(
-            name: 'vm_service_extension_tree', durationsMs: d, targetMs: targets['vm_service_extension_tree']!));
+            name: 'vm_service_extension_tree',
+            durationsMs: d,
+            targetMs: targets['vm_service_extension_tree']!));
       } catch (e) {
         results.add(_fail('vm_service_extension_tree', e));
       }
@@ -300,14 +319,19 @@ Future<void> main(List<String> args) async {
         print('  Skipping bridge benchmarks.\n');
       } else {
         final d = await _bench(() => client.isConnected(), count: iterCount);
-        results.add(BenchmarkResult(name: 'bridge_health', durationsMs: d, targetMs: targets['bridge_health']!));
+        results.add(BenchmarkResult(
+            name: 'bridge_health',
+            durationsMs: d,
+            targetMs: targets['bridge_health']!));
 
         // Screenshot
         print('  screenshot...');
         try {
           final d = await _bench(() => client.screenshot(), count: iterCount);
-          results
-              .add(BenchmarkResult(name: 'bridge_screenshot', durationsMs: d, targetMs: targets['bridge_screenshot']!));
+          results.add(BenchmarkResult(
+              name: 'bridge_screenshot',
+              durationsMs: d,
+              targetMs: targets['bridge_screenshot']!));
         } catch (e) {
           results.add(_fail('bridge_screenshot', e));
         }
@@ -316,8 +340,10 @@ Future<void> main(List<String> args) async {
         print('  widgetTree...');
         try {
           final d = await _bench(() => client.widgetTree(), count: iterCount);
-          results.add(
-              BenchmarkResult(name: 'bridge_widget_tree', durationsMs: d, targetMs: targets['bridge_widget_tree']!));
+          results.add(BenchmarkResult(
+              name: 'bridge_widget_tree',
+              durationsMs: d,
+              targetMs: targets['bridge_widget_tree']!));
         } catch (e) {
           results.add(_fail('bridge_widget_tree', e));
         }
@@ -326,7 +352,10 @@ Future<void> main(List<String> args) async {
         print('  tap...');
         try {
           final d = await _bench(() => client.tap(195, 400), count: iterCount);
-          results.add(BenchmarkResult(name: 'bridge_tap', durationsMs: d, targetMs: targets['bridge_tap']!));
+          results.add(BenchmarkResult(
+              name: 'bridge_tap',
+              durationsMs: d,
+              targetMs: targets['bridge_tap']!));
         } catch (e) {
           results.add(_fail('bridge_tap', e));
         }
@@ -334,8 +363,12 @@ Future<void> main(List<String> args) async {
         // Swipe
         print('  swipe...');
         try {
-          final d = await _bench(() => client.swipe(200, 400, 200, 200), count: iterCount);
-          results.add(BenchmarkResult(name: 'bridge_swipe', durationsMs: d, targetMs: targets['bridge_swipe']!));
+          final d = await _bench(() => client.swipe(200, 400, 200, 200),
+              count: iterCount);
+          results.add(BenchmarkResult(
+              name: 'bridge_swipe',
+              durationsMs: d,
+              targetMs: targets['bridge_swipe']!));
         } catch (e) {
           results.add(_fail('bridge_swipe', e));
         }
@@ -343,8 +376,12 @@ Future<void> main(List<String> args) async {
         // Scroll
         print('  scroll...');
         try {
-          final d = await _bench(() => client.scroll(200, 400, dy: -100), count: iterCount);
-          results.add(BenchmarkResult(name: 'bridge_scroll', durationsMs: d, targetMs: targets['bridge_scroll']!));
+          final d = await _bench(() => client.scroll(200, 400, dy: -100),
+              count: iterCount);
+          results.add(BenchmarkResult(
+              name: 'bridge_scroll',
+              durationsMs: d,
+              targetMs: targets['bridge_scroll']!));
         } catch (e) {
           results.add(_fail('bridge_scroll', e));
         }
@@ -352,8 +389,12 @@ Future<void> main(List<String> args) async {
         // Find (server-side)
         print('  find...');
         try {
-          final d = await _bench(() => client.find(text: 'Item'), count: iterCount);
-          results.add(BenchmarkResult(name: 'bridge_find', durationsMs: d, targetMs: targets['bridge_find']!));
+          final d =
+              await _bench(() => client.find(text: 'Item'), count: iterCount);
+          results.add(BenchmarkResult(
+              name: 'bridge_find',
+              durationsMs: d,
+              targetMs: targets['bridge_find']!));
         } catch (e) {
           results.add(_fail('bridge_find', e));
         }
@@ -361,9 +402,12 @@ Future<void> main(List<String> args) async {
         // Enter text
         print('  enterText...');
         try {
-          final d = await _bench(() => client.enterText('test', replace: true), count: iterCount);
-          results
-              .add(BenchmarkResult(name: 'bridge_enter_text', durationsMs: d, targetMs: targets['bridge_enter_text']!));
+          final d = await _bench(() => client.enterText('test', replace: true),
+              count: iterCount);
+          results.add(BenchmarkResult(
+              name: 'bridge_enter_text',
+              durationsMs: d,
+              targetMs: targets['bridge_enter_text']!));
         } catch (e) {
           results.add(_fail('bridge_enter_text', e));
         }
@@ -372,7 +416,10 @@ Future<void> main(List<String> args) async {
         print('  appInfo...');
         try {
           final d = await _bench(() => client.appInfo(), count: iterCount);
-          results.add(BenchmarkResult(name: 'bridge_app_info', durationsMs: d, targetMs: targets['bridge_app_info']!));
+          results.add(BenchmarkResult(
+              name: 'bridge_app_info',
+              durationsMs: d,
+              targetMs: targets['bridge_app_info']!));
         } catch (e) {
           results.add(_fail('bridge_app_info', e));
         }
@@ -385,8 +432,10 @@ Future<void> main(List<String> args) async {
             await client.widgetTree();
             await client.tap(195, 400);
           }, count: iterCount);
-          results
-              .add(BenchmarkResult(name: 'bridge_full_loop', durationsMs: d, targetMs: targets['bridge_full_loop']!));
+          results.add(BenchmarkResult(
+              name: 'bridge_full_loop',
+              durationsMs: d,
+              targetMs: targets['bridge_full_loop']!));
         } catch (e) {
           results.add(_fail('bridge_full_loop', e));
         }
