@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flutter Turbo Bridge Benchmarks</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5efe4;
+      --panel: #fffdf8;
+      --ink: #1e1d1a;
+      --muted: #6b6558;
+      --border: #ddd0b8;
+      --accent: #154c79;
+      --accent-soft: rgba(21, 76, 121, 0.12);
+      --p50: #2f7d4a;
+      --p95: #154c79;
+      --p99: #b65a2a;
+      --target: #6b6558;
+      --danger: #9d2f2f;
+      --ok: #2f7d4a;
+      --shadow: 0 18px 50px rgba(61, 47, 18, 0.09);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.72), transparent 32%),
+        linear-gradient(180deg, #efe4d0 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+      align-items: start;
+      margin-bottom: 28px;
+    }
+
+    .hero-card,
+    .meta-card,
+    .chart-card,
+    .empty-state {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card {
+      padding: 28px;
+    }
+
+    .meta-card {
+      padding: 24px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 0.98;
+      letter-spacing: -0.03em;
+      max-width: 12ch;
+    }
+
+    .hero-copy {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.55;
+      max-width: 58ch;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .legend-swatch.target {
+      border: 2px dashed var(--target);
+      background: transparent;
+    }
+
+    .meta-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .meta-row {
+      display: grid;
+      gap: 4px;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .meta-value {
+      font-size: 1.15rem;
+      line-height: 1.35;
+    }
+
+    .status-strip {
+      margin: 28px 0 18px;
+      padding: 16px 20px;
+      border-radius: 18px;
+      background: var(--accent-soft);
+      color: var(--ink);
+      border: 1px solid rgba(21, 76, 121, 0.18);
+      line-height: 1.5;
+    }
+
+    .charts {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .chart-card {
+      padding: 20px 20px 16px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+
+    .chart-title {
+      font-size: 1.25rem;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .chart-subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .badge {
+      flex: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      background: #fff;
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      color: var(--ok);
+    }
+
+    .badge.fail {
+      color: var(--danger);
+    }
+
+    .chart-shell {
+      position: relative;
+      height: 280px;
+    }
+
+    .card-footer {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .empty-state {
+      padding: 32px;
+      text-align: center;
+    }
+
+    .empty-state p {
+      margin-top: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .page {
+        padding: 20px 14px 32px;
+      }
+
+      .hero-card,
+      .meta-card,
+      .chart-card,
+      .empty-state {
+        border-radius: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <article class="hero-card">
+        <h1>Flutter Turbo Bridge performance over time</h1>
+        <p class="hero-copy">
+          CI stores benchmark history on every push to main. Each chart overlays p50, p95, p99,
+          and the target threshold so regressions and headroom are visible without opening raw JSON.
+        </p>
+        <div class="legend" aria-label="Chart legend">
+          <span class="legend-chip"><span class="legend-swatch" style="background: var(--p50);"></span>p50</span>
+          <span class="legend-chip"><span class="legend-swatch" style="background: var(--p95);"></span>p95</span>
+          <span class="legend-chip"><span class="legend-swatch" style="background: var(--p99);"></span>p99</span>
+          <span class="legend-chip"><span class="legend-swatch target"></span>target</span>
+        </div>
+      </article>
+
+      <aside class="meta-card">
+        <div class="meta-list" id="meta-list">
+          <div class="meta-row">
+            <span class="meta-label">Suite</span>
+            <span class="meta-value" id="suite-name">Loading...</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Runs tracked</span>
+            <span class="meta-value" id="run-count">-</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Latest run</span>
+            <span class="meta-value" id="latest-run">-</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Data</span>
+            <span class="meta-value"><a href="./data.js">Download raw benchmark history</a></span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <div class="status-strip" id="status-strip">
+      Loading benchmark history...
+    </div>
+
+    <section class="charts" id="charts"></section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="./data.js"></script>
+  <script>
+    const seriesPattern = /^(.*) \((p50|p95|p99|target)\)$/;
+    const palette = {
+      p50: '#2f7d4a',
+      p95: '#154c79',
+      p99: '#b65a2a',
+      target: '#6b6558',
+    };
+
+    const chartsRoot = document.getElementById('charts');
+    const suiteNameElement = document.getElementById('suite-name');
+    const runCountElement = document.getElementById('run-count');
+    const latestRunElement = document.getElementById('latest-run');
+    const statusStripElement = document.getElementById('status-strip');
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatNumber(value) {
+      return Number.isFinite(value) ? `${value}ms` : '-';
+    }
+
+    function slugify(value) {
+      return String(value).replace(/[^a-zA-Z0-9_-]/g, '-');
+    }
+
+    function shortCommit(run, index) {
+      const commit = run.commit || {};
+      const id = commit.id || commit.hash || commit.sha || commit.oid || '';
+      if (typeof id === 'string' && id.length > 0) {
+        return id.slice(0, 7);
+      }
+      return `run-${index + 1}`;
+    }
+
+    function commitMessage(run) {
+      const commit = run.commit || {};
+      return commit.message || run.message || 'No commit message available';
+    }
+
+    function runDate(run) {
+      const commit = run.commit || {};
+      const raw = run.date || commit.timestamp || commit.date || null;
+      if (!raw) {
+        return 'Unknown date';
+      }
+
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) {
+        return String(raw);
+      }
+
+      return parsed.toLocaleString();
+    }
+
+    function latestDefined(series) {
+      for (let index = series.length - 1; index >= 0; index -= 1) {
+        const value = series[index];
+        if (Number.isFinite(value)) {
+          return value;
+        }
+      }
+      return null;
+    }
+
+    function toDataset(label, values) {
+      const isTarget = label === 'target';
+      return {
+        label,
+        data: values,
+        spanGaps: true,
+        borderColor: palette[label],
+        backgroundColor: palette[label],
+        borderWidth: label === 'p95' ? 3 : 2,
+        pointRadius: label === 'target' ? 0 : 2,
+        pointHoverRadius: label === 'target' ? 0 : 4,
+        tension: 0.28,
+        fill: false,
+        borderDash: isTarget ? [10, 6] : undefined,
+      };
+    }
+
+    function normalizeBenchmarkData(rawData) {
+      if (!rawData || typeof rawData !== 'object' || !rawData.entries) {
+        return null;
+      }
+
+      const suiteNames = Object.keys(rawData.entries);
+      if (suiteNames.length === 0) {
+        return null;
+      }
+
+      const suiteName = suiteNames[0];
+      const runs = Array.isArray(rawData.entries[suiteName]) ? rawData.entries[suiteName] : [];
+      const operations = new Map();
+      const labels = [];
+      const meta = [];
+
+      runs.forEach((run, runIndex) => {
+        labels.push(shortCommit(run, runIndex));
+        meta.push({
+          commit: shortCommit(run, runIndex),
+          message: commitMessage(run),
+          date: runDate(run),
+        });
+
+        const benches = Array.isArray(run.benches) ? run.benches : [];
+        benches.forEach((bench) => {
+          if (!bench || typeof bench.name !== 'string') {
+            return;
+          }
+
+          const match = seriesPattern.exec(bench.name);
+          if (!match) {
+            return;
+          }
+
+          const operation = match[1];
+          const metric = match[2];
+          const value = Number(bench.value);
+
+          if (!operations.has(operation)) {
+            operations.set(operation, {
+              p50: Array(runs.length).fill(null),
+              p95: Array(runs.length).fill(null),
+              p99: Array(runs.length).fill(null),
+              target: Array(runs.length).fill(null),
+            });
+          }
+
+          operations.get(operation)[metric][runIndex] = Number.isFinite(value) ? value : null;
+        });
+      });
+
+      return { suiteName, runs, operations, labels, meta };
+    }
+
+    function renderEmptyState(message) {
+      chartsRoot.innerHTML = `
+        <article class="empty-state">
+          <h2>No benchmark history yet</h2>
+          <p>${escapeHtml(message)}</p>
+        </article>
+      `;
+      statusStripElement.textContent = message;
+      suiteNameElement.textContent = 'Unavailable';
+      runCountElement.textContent = '0';
+      latestRunElement.textContent = '-';
+    }
+
+    function renderDashboard(normalized) {
+      const { suiteName, runs, operations, labels, meta } = normalized;
+      const operationNames = Array.from(operations.keys()).sort();
+
+      suiteNameElement.textContent = suiteName;
+      runCountElement.textContent = String(runs.length);
+      latestRunElement.textContent = runs.length > 0 ? `${meta[meta.length - 1].commit} on ${meta[meta.length - 1].date}` : '-';
+      statusStripElement.textContent = `Tracking ${operationNames.length} operations across ${runs.length} runs. Dashed target lines stay flat while p50, p95, and p99 show drift over time.`;
+
+      chartsRoot.innerHTML = operationNames.map((operation) => {
+        const series = operations.get(operation);
+        const latestP95 = latestDefined(series.p95);
+        const latestTarget = latestDefined(series.target);
+        const statusOk = latestP95 !== null && latestTarget !== null && latestP95 <= latestTarget;
+        const headroom = latestP95 !== null && latestTarget !== null
+          ? Math.round(((latestTarget - latestP95) / latestTarget) * 100)
+          : null;
+        const badgeClass = statusOk ? 'badge ok' : 'badge fail';
+        const badgeText = statusOk ? 'Within target' : 'Over target';
+        const summary = headroom === null
+          ? 'No target data'
+          : headroom >= 0
+            ? `${headroom}% headroom`
+            : `${Math.abs(headroom)}% over budget`;
+        const canvasId = `chart-${slugify(operation)}`;
+
+        return `
+          <article class="chart-card">
+            <div class="chart-header">
+              <div>
+                <h2 class="chart-title">${escapeHtml(operation)}</h2>
+                <p class="chart-subtitle">Latest p95: ${formatNumber(latestP95)} | Target: ${formatNumber(latestTarget)} | ${escapeHtml(summary)}</p>
+              </div>
+              <span class="${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="chart-shell">
+              <canvas id="${canvasId}"></canvas>
+            </div>
+            <div class="card-footer">
+              <span>Series: p50, p95, p99, target</span>
+              <span>Last commit: ${escapeHtml(meta[meta.length - 1]?.commit || '-')}</span>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      operationNames.forEach((operation) => {
+        const series = operations.get(operation);
+        const canvasId = `chart-${slugify(operation)}`;
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+          return;
+        }
+
+        const context = canvas.getContext('2d');
+
+        new Chart(context, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              toDataset('p50', series.p50),
+              toDataset('p95', series.p95),
+              toDataset('p99', series.p99),
+              toDataset('target', series.target),
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            scales: {
+              x: {
+                ticks: {
+                  maxRotation: 0,
+                  autoSkip: true,
+                  color: '#6b6558',
+                },
+                grid: {
+                  color: 'rgba(107, 101, 88, 0.12)',
+                },
+              },
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback(value) {
+                    return `${value}ms`;
+                  },
+                  color: '#6b6558',
+                },
+                grid: {
+                  color: 'rgba(107, 101, 88, 0.12)',
+                },
+                title: {
+                  display: true,
+                  text: 'Latency (ms)',
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  usePointStyle: true,
+                  boxWidth: 10,
+                },
+              },
+              tooltip: {
+                callbacks: {
+                  title(items) {
+                    const index = items[0]?.dataIndex ?? 0;
+                    const entry = meta[index];
+                    return entry ? `${entry.commit} | ${entry.date}` : labels[index];
+                  },
+                  beforeBody(items) {
+                    const index = items[0]?.dataIndex ?? 0;
+                    const entry = meta[index];
+                    return entry ? entry.message : '';
+                  },
+                  label(item) {
+                    return `${item.dataset.label}: ${item.formattedValue}ms`;
+                  },
+                },
+              },
+            },
+          },
+        });
+      });
+    }
+
+    const normalized = normalizeBenchmarkData(window.BENCHMARK_DATA);
+    if (!normalized || normalized.runs.length === 0 || normalized.operations.size === 0) {
+      renderEmptyState('Push main at least once after benchmark tracking is enabled to populate this dashboard.');
+    } else {
+      renderDashboard(normalized);
+    }
+  </script>
+</body>
+</html>

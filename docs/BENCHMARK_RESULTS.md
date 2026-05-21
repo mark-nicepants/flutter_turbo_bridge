@@ -72,7 +72,7 @@ Historical benchmark charts are published to GitHub Pages:
 
 **https://mark-nicepants.github.io/flutter_turbo_bridge/benchmarks/**
 
-The dashboard shows p95 latency trends for all bridge operations over time (last 50 data points).
+The dashboard shows p50, p95, p99, and target lines for every tracked bridge operation over time (last 50 data points).
 
 ### PR Comments
 

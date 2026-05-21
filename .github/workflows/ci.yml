@@ -80,7 +80,12 @@ jobs:
         working-directory: apps/benchmark
         run: |
           if [ -f benchmark_results.json ]; then
-            jq '[.results[] | select(.success) | {name: (.name + " (p95)"), unit: "ms", value: .p95_ms}]' \
+            jq '[.results[] | select(.success) | [
+              {name: (.name + " (p50)"), unit: "ms", value: .p50_ms},
+              {name: (.name + " (p95)"), unit: "ms", value: .p95_ms},
+              {name: (.name + " (p99)"), unit: "ms", value: .p99_ms},
+              {name: (.name + " (target)"), unit: "ms", value: .target_ms}
+            ]] | add' \
               benchmark_results.json > benchmark_gh.json
           fi
 
@@ -99,6 +104,42 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           max-items-in-chart: 50
+
+      - name: Sync custom benchmark dashboard
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          dashboard_dir="$(mktemp -d)"
+
+          if git clone --branch gh-pages --single-branch "$repo_url" "$dashboard_dir"; then
+            echo "Cloned existing gh-pages branch."
+          else
+            rm -rf "$dashboard_dir"
+            dashboard_dir="$(mktemp -d)"
+            git init "$dashboard_dir"
+            git -C "$dashboard_dir" checkout -b gh-pages
+            git -C "$dashboard_dir" remote add origin "$repo_url"
+            echo "Created new gh-pages branch checkout."
+          fi
+
+          git -C "$dashboard_dir" config user.name "github-actions[bot]"
+          git -C "$dashboard_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          mkdir -p "$dashboard_dir/benchmarks"
+          cp apps/benchmark/web/index.html "$dashboard_dir/benchmarks/index.html"
+
+          git -C "$dashboard_dir" add benchmarks/index.html
+          if git -C "$dashboard_dir" diff --cached --quiet; then
+            echo "No benchmark dashboard changes to publish."
+            exit 0
+          fi
+
+          git -C "$dashboard_dir" commit -m "Update benchmark dashboard"
+          git -C "$dashboard_dir" push origin HEAD:gh-pages
 
       - name: Comment benchmark results on PR
         if: always() && github.event_name == 'pull_request'

@@ -83,6 +83,8 @@ All operations are designed for <50ms round-trip latency:
 | Tap gesture | <30ms |
 | App info | <10ms |
 
+Historical benchmark trends with p50, p95, p99, and target lines are published at https://mark-nicepants.github.io/flutter_turbo_bridge/benchmarks/.
+
 ## Development
 
 This is a Dart/Flutter monorepo managed with [Melos](https://melos.invertase.dev/).
