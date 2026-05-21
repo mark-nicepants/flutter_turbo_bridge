@@ -87,6 +87,18 @@ Add to `.cursor/mcp.json` in your project (committable):
 }
 ```
 
+### Android Devices / Emulators
+
+The bridge server runs inside the app on the device, so `localhost:8888` on the host can't reach it directly. The MCP server **automatically detects** this and sets up ADB port forwarding — no extra configuration needed.
+
+How it works:
+1. On startup, the MCP server tries to reach the bridge at `localhost:8888`
+2. If unreachable, it checks for a connected Android device via `adb devices`
+3. If found, it runs `adb forward tcp:8888 tcp:8888` automatically
+4. On exit, it cleans up the forwarding
+
+No changes to your MCP config are needed — the same setup works for both desktop and Android.
+
 ### CLI Options
 
 ```

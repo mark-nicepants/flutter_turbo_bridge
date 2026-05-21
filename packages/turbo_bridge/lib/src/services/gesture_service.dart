@@ -217,6 +217,7 @@ class GestureService {
         ]),
       );
 
+      // ignore: deprecated_member_use
       await messenger.handlePlatformMessage(
         SystemChannels.textInput.name,
         stateMessage,
