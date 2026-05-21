@@ -30,7 +30,8 @@ class AppInfoService {
       'screenHeight': size.height,
       'pixelRatio': window.devicePixelRatio,
       'platform': _platformName(),
-      'darkMode': binding.platformDispatcher.platformBrightness == ui.Brightness.dark,
+      'darkMode':
+          binding.platformDispatcher.platformBrightness == ui.Brightness.dark,
       'currentRoute': currentRoute,
       'bridgeVersion': '0.1.0',
       'locale': binding.platformDispatcher.locale.toString(),

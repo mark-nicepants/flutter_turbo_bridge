@@ -8,7 +8,10 @@ void registerAppInfoResource(McpServer server, TurboBridgeClient client) {
   server.registerResource(
     'App Info',
     'flutter://app/info',
-    (description: 'Live metadata about the running Flutter app', mimeType: 'application/json'),
+    (
+      description: 'Live metadata about the running Flutter app',
+      mimeType: 'application/json'
+    ),
     (uri, extra) async {
       try {
         final info = await client.appInfo();
@@ -23,7 +26,8 @@ void registerAppInfoResource(McpServer server, TurboBridgeClient client) {
                 'platform': info.platform,
                 'darkMode': info.darkMode,
                 'bridgeVersion': info.bridgeVersion,
-                if (info.currentRoute != null) 'currentRoute': info.currentRoute,
+                if (info.currentRoute != null)
+                  'currentRoute': info.currentRoute,
                 if (info.locale != null) 'locale': info.locale,
               }),
               mimeType: 'application/json',

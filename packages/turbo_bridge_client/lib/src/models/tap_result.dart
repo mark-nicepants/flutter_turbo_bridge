@@ -22,5 +22,6 @@ class TapResult {
   }
 
   @override
-  String toString() => 'TapResult(success=$success, exec=${executionTimeMs}ms, roundTrip=${roundTripMs}ms)';
+  String toString() =>
+      'TapResult(success=$success, exec=${executionTimeMs}ms, roundTrip=${roundTripMs}ms)';
 }

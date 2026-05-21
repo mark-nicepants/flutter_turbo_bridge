@@ -55,7 +55,8 @@ class TurboBridgeClient {
   }
 
   /// Get the widget tree with timing metadata.
-  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})> widgetTreeWithTiming({
+  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})>
+      widgetTreeWithTiming({
     int depth = 10,
   }) {
     return _bridge.widgetTree(depth: depth);
@@ -101,7 +102,8 @@ class TurboBridgeClient {
   /// Requires [connectVmService] to be called first.
   Future<String> evaluate(String expression) async {
     if (_vmService == null || !_vmService.isConnected) {
-      throw StateError('VM Service not connected. Call connectVmService() first.');
+      throw StateError(
+          'VM Service not connected. Call connectVmService() first.');
     }
     final result = await _vmService.evaluate(expression);
     return result.json?['valueAsString']?.toString() ?? result.toString();

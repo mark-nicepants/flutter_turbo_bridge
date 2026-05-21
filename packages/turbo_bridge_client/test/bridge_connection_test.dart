@@ -125,7 +125,8 @@ void main() {
         final mockClient = http_testing.MockClient((request) async {
           expect(request.url.path, '/tree');
           expect(request.url.queryParameters['depth'], '5');
-          return http.Response(responseBody, 200, headers: {'content-type': 'application/json'});
+          return http.Response(responseBody, 200,
+              headers: {'content-type': 'application/json'});
         });
 
         connection = BridgeConnection.withClient(

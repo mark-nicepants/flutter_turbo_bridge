@@ -24,7 +24,8 @@ class WidgetNode {
     if (!compact || rect != null) map['rect'] = rect;
     if (!compact || text != null) map['text'] = text;
     if (children.isNotEmpty) {
-      map['children'] = children.map((c) => c.toJson(compact: compact)).toList();
+      map['children'] =
+          children.map((c) => c.toJson(compact: compact)).toList();
     }
     return map;
   }

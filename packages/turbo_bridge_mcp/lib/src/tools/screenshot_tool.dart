@@ -7,11 +7,13 @@ import 'package:turbo_bridge_client/turbo_bridge_client.dart';
 void registerScreenshotTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_screenshot',
-    description: 'Capture a screenshot of the running Flutter app. Returns a PNG image.',
+    description:
+        'Capture a screenshot of the running Flutter app. Returns a PNG image.',
     inputSchema: JsonSchema.object(
       properties: {
         'pixelRatio': JsonSchema.number(
-          description: 'Pixel ratio for the screenshot (1.0 = logical pixels, 2.0 = retina)',
+          description:
+              'Pixel ratio for the screenshot (1.0 = logical pixels, 2.0 = retina)',
         ),
       },
     ),

@@ -19,12 +19,14 @@ class WidgetNode {
       type: json['type'] as String,
       key: json['key'] as String?,
       rect: json['rect'] != null
-          ? (json['rect'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as num).toDouble()))
+          ? (json['rect'] as Map<String, dynamic>)
+              .map((k, v) => MapEntry(k, (v as num).toDouble()))
           : null,
       text: json['text'] as String?,
-      children:
-          (json['children'] as List<dynamic>?)?.map((c) => WidgetNode.fromJson(c as Map<String, dynamic>)).toList() ??
-              const [],
+      children: (json['children'] as List<dynamic>?)
+              ?.map((c) => WidgetNode.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
@@ -56,7 +58,8 @@ class WidgetNode {
   WidgetNode? findByKey(String key) => findFirst((n) => n.key == key);
 
   /// Find all nodes containing the given text.
-  List<WidgetNode> findByText(String text) => findAll((n) => n.text != null && n.text!.contains(text));
+  List<WidgetNode> findByText(String text) =>
+      findAll((n) => n.text != null && n.text!.contains(text));
 
   /// Find all nodes of a given widget type.
   List<WidgetNode> findByType(String type) => findAll((n) => n.type == type);
@@ -71,5 +74,6 @@ class WidgetNode {
   }
 
   @override
-  String toString() => 'WidgetNode($type${key != null ? ', key=$key' : ''}${text != null ? ', "$text"' : ''})';
+  String toString() =>
+      'WidgetNode($type${key != null ? ', key=$key' : ''}${text != null ? ', "$text"' : ''})';
 }

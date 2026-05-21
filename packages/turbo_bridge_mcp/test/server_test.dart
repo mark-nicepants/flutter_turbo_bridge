@@ -86,13 +86,14 @@ void main() {
   group('screenshot tool', () {
     test('returns image content on success', () async {
       final pngBytes = Uint8List.fromList([137, 80, 78, 71, 13, 10, 26, 10]);
-      when(() => mockClient.screenshot(pixelRatio: any(named: 'pixelRatio'))).thenAnswer((_) async => ScreenshotResult(
-            bytes: pngBytes,
-            captureTimeMs: 5,
-            width: 400,
-            height: 800,
-            roundTripMs: 10,
-          ));
+      when(() => mockClient.screenshot(pixelRatio: any(named: 'pixelRatio')))
+          .thenAnswer((_) async => ScreenshotResult(
+                bytes: pngBytes,
+                captureTimeMs: 5,
+                width: 400,
+                height: 800,
+                roundTripMs: 10,
+              ));
 
       final result = await mcpClient.callTool(
         CallToolRequest(name: 'flutter_screenshot', arguments: {}),
@@ -107,13 +108,14 @@ void main() {
     });
 
     test('passes pixelRatio parameter', () async {
-      when(() => mockClient.screenshot(pixelRatio: 2.0)).thenAnswer((_) async => ScreenshotResult(
-            bytes: Uint8List(0),
-            captureTimeMs: 5,
-            width: 800,
-            height: 1600,
-            roundTripMs: 10,
-          ));
+      when(() => mockClient.screenshot(pixelRatio: 2.0))
+          .thenAnswer((_) async => ScreenshotResult(
+                bytes: Uint8List(0),
+                captureTimeMs: 5,
+                width: 800,
+                height: 1600,
+                roundTripMs: 10,
+              ));
 
       await mcpClient.callTool(
         CallToolRequest(
@@ -134,7 +136,8 @@ void main() {
       );
 
       expect(result.isError, isTrue);
-      expect((result.content[0] as TextContent).text, contains('Screenshot failed'));
+      expect((result.content[0] as TextContent).text,
+          contains('Screenshot failed'));
     });
   });
 
@@ -149,7 +152,8 @@ void main() {
         ],
       );
       when(() => mockClient.widgetTreeWithTiming(depth: any(named: 'depth')))
-          .thenAnswer((_) async => (tree: tree, captureTimeMs: 2, roundTripMs: 5));
+          .thenAnswer(
+              (_) async => (tree: tree, captureTimeMs: 2, roundTripMs: 5));
 
       final result = await mcpClient.callTool(
         CallToolRequest(name: 'flutter_widget_tree', arguments: {}),
@@ -164,11 +168,12 @@ void main() {
     });
 
     test('passes depth parameter', () async {
-      when(() => mockClient.widgetTreeWithTiming(depth: 5)).thenAnswer((_) async => (
-            tree: WidgetNode(type: 'Root'),
-            captureTimeMs: 1,
-            roundTripMs: 2,
-          ));
+      when(() => mockClient.widgetTreeWithTiming(depth: 5))
+          .thenAnswer((_) async => (
+                tree: WidgetNode(type: 'Root'),
+                captureTimeMs: 1,
+                roundTripMs: 2,
+              ));
 
       await mcpClient.callTool(
         CallToolRequest(
@@ -183,11 +188,12 @@ void main() {
 
   group('tap tool', () {
     test('returns result on success', () async {
-      when(() => mockClient.tap(any(), any())).thenAnswer((_) async => TapResult(
-            success: true,
-            executionTimeMs: 1,
-            roundTripMs: 5,
-          ));
+      when(() => mockClient.tap(any(), any()))
+          .thenAnswer((_) async => TapResult(
+                success: true,
+                executionTimeMs: 1,
+                roundTripMs: 5,
+              ));
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -203,7 +209,8 @@ void main() {
     });
 
     test('returns error on failure', () async {
-      when(() => mockClient.tap(any(), any())).thenThrow(Exception('No widget at position'));
+      when(() => mockClient.tap(any(), any()))
+          .thenThrow(Exception('No widget at position'));
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -254,7 +261,8 @@ void main() {
           ),
         ],
       );
-      when(() => mockClient.widgetTree(depth: -1)).thenAnswer((_) async => tree);
+      when(() => mockClient.widgetTree(depth: -1))
+          .thenAnswer((_) async => tree);
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -279,7 +287,8 @@ void main() {
           WidgetNode(type: 'FloatingActionButton', key: 'increment_btn'),
         ],
       );
-      when(() => mockClient.widgetTree(depth: -1)).thenAnswer((_) async => tree);
+      when(() => mockClient.widgetTree(depth: -1))
+          .thenAnswer((_) async => tree);
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -301,7 +310,8 @@ void main() {
           WidgetNode(type: 'ElevatedButton'),
         ],
       );
-      when(() => mockClient.widgetTree(depth: -1)).thenAnswer((_) async => tree);
+      when(() => mockClient.widgetTree(depth: -1))
+          .thenAnswer((_) async => tree);
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -317,7 +327,8 @@ void main() {
 
     test('returns not found when no match', () async {
       final tree = WidgetNode(type: 'Column');
-      when(() => mockClient.widgetTree(depth: -1)).thenAnswer((_) async => tree);
+      when(() => mockClient.widgetTree(depth: -1))
+          .thenAnswer((_) async => tree);
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -363,7 +374,8 @@ void main() {
     });
 
     test('widget tree resource returns JSON', () async {
-      when(() => mockClient.widgetTree(depth: 10)).thenAnswer((_) async => WidgetNode(type: 'MaterialApp'));
+      when(() => mockClient.widgetTree(depth: 10))
+          .thenAnswer((_) async => WidgetNode(type: 'MaterialApp'));
 
       final result = await mcpClient.readResource(
         ReadResourceRequest(uri: 'flutter://app/tree'),

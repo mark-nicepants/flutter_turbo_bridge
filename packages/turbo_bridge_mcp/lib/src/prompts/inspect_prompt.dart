@@ -5,12 +5,14 @@ import 'package:turbo_bridge_client/turbo_bridge_client.dart';
 void registerInspectPrompt(McpServer server, TurboBridgeClient client) {
   server.registerPrompt(
     'flutter_inspect',
-    description: 'Generate a comprehensive inspection of the running Flutter app. '
+    description:
+        'Generate a comprehensive inspection of the running Flutter app. '
         'Captures a screenshot, widget tree, and app info, then provides '
         'analysis instructions.',
     argsSchema: {
       'focus': PromptArgumentDefinition(
-        description: 'Optional area to focus the inspection on (e.g. "navigation", "layout", "accessibility")',
+        description:
+            'Optional area to focus the inspection on (e.g. "navigation", "layout", "accessibility")',
         required: false,
       ),
     },
@@ -37,7 +39,8 @@ void registerInspectPrompt(McpServer server, TurboBridgeClient client) {
       ];
 
       return GetPromptResult(
-        description: 'Inspect Flutter app${focus != null ? ' (focus: $focus)' : ''}',
+        description:
+            'Inspect Flutter app${focus != null ? ' (focus: $focus)' : ''}',
         messages: messages,
       );
     },

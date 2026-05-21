@@ -7,7 +7,8 @@ import 'package:turbo_bridge_client/turbo_bridge_client.dart';
 void registerWidgetTreeTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_widget_tree',
-    description: 'Get the current widget tree of the running Flutter app as JSON. '
+    description:
+        'Get the current widget tree of the running Flutter app as JSON. '
         'Includes widget types, keys, text content, and layout bounds. '
         'Use depth=-1 for unlimited depth.',
     inputSchema: JsonSchema.object(
@@ -25,7 +26,8 @@ void registerWidgetTreeTool(McpServer server, TurboBridgeClient client) {
         return CallToolResult(
           content: [
             TextContent(
-              text: const JsonEncoder.withIndent('  ').convert(_nodeToJson(result.tree)),
+              text: const JsonEncoder.withIndent('  ')
+                  .convert(_nodeToJson(result.tree)),
             ),
           ],
         );

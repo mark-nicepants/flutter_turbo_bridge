@@ -44,7 +44,8 @@ class GestureService {
       binding.handlePointerEvent(upEvent);
 
       sw.stop();
-      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(
+          success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -59,7 +60,8 @@ class GestureService {
   ///
   /// Note: This dispatches events synchronously. The actual long-press
   /// recognition depends on the gesture detector's timeout.
-  GestureResult longPress(double x, double y, {Duration duration = const Duration(milliseconds: 500)}) {
+  GestureResult longPress(double x, double y,
+      {Duration duration = const Duration(milliseconds: 500)}) {
     final sw = Stopwatch()..start();
     try {
       final binding = WidgetsBinding.instance;
@@ -81,7 +83,8 @@ class GestureService {
       });
 
       sw.stop();
-      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(
+          success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -134,7 +137,8 @@ class GestureService {
       }
 
       sw.stop();
-      return GestureResult(success: true, executionTimeMs: sw.elapsedMilliseconds);
+      return GestureResult(
+          success: true, executionTimeMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return GestureResult(

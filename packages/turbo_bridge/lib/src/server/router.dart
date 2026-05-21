@@ -54,14 +54,16 @@ class BridgeRouter {
   Future<Response> _handleScreenshot(Request request) async {
     final sw = Stopwatch()..start();
 
-    final pixelRatio = double.tryParse(request.url.queryParameters['pixelRatio'] ?? '') ?? 1.0;
+    final pixelRatio =
+        double.tryParse(request.url.queryParameters['pixelRatio'] ?? '') ?? 1.0;
 
     final bytes = await screenshotService.capture(pixelRatio: pixelRatio);
     sw.stop();
 
     if (bytes == null) {
       return Response(503,
-          body: jsonEncode({'error': 'No render tree available'}), headers: {'content-type': 'application/json'});
+          body: jsonEncode({'error': 'No render tree available'}),
+          headers: {'content-type': 'application/json'});
     }
 
     final headers = <String, String>{
@@ -86,7 +88,8 @@ class BridgeRouter {
   Response _handleTree(Request request) {
     final sw = Stopwatch()..start();
 
-    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ?? widgetTreeService.defaultDepth;
+    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ??
+        widgetTreeService.defaultDepth;
     final compact = request.url.queryParameters['compact'] != 'false';
 
     final tree = widgetTreeService.capture(depth: depth, compact: compact);
@@ -94,7 +97,8 @@ class BridgeRouter {
 
     if (tree == null) {
       return Response(503,
-          body: jsonEncode({'error': 'No element tree available'}), headers: {'content-type': 'application/json'});
+          body: jsonEncode({'error': 'No element tree available'}),
+          headers: {'content-type': 'application/json'});
     }
 
     final body = jsonEncode({
@@ -137,7 +141,8 @@ class BridgeRouter {
 
   Response _handleHealth() {
     return Response.ok(
-      jsonEncode({'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
+      jsonEncode(
+          {'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
       headers: {'content-type': 'application/json'},
     );
   }

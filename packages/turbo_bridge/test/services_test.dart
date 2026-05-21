@@ -86,7 +86,8 @@ void main() {
       expect(deep, isNotNull);
 
       int countNodes(WidgetNode node) {
-        return 1 + node.children.fold(0, (sum, child) => sum + countNodes(child));
+        return 1 +
+            node.children.fold(0, (sum, child) => sum + countNodes(child));
       }
 
       // Deeper tree should have more nodes
@@ -148,7 +149,8 @@ void main() {
       expect(result.executionTimeMs, lessThan(100));
     });
 
-    testWidgets('tap with tester confirms gesture system works', (tester) async {
+    testWidgets('tap with tester confirms gesture system works',
+        (tester) async {
       var tapped = false;
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(

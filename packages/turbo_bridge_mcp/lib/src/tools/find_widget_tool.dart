@@ -7,7 +7,8 @@ import 'package:turbo_bridge_client/turbo_bridge_client.dart';
 void registerFindWidgetTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_find_widget',
-    description: 'Find a widget in the Flutter app by text content, ValueKey, or widget type. '
+    description:
+        'Find a widget in the Flutter app by text content, ValueKey, or widget type. '
         'Returns the widget\'s position and bounds so you can tap it. '
         'Provide exactly one of: text, key, or type.',
     inputSchema: JsonSchema.object(

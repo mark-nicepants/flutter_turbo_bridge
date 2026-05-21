@@ -8,7 +8,10 @@ void registerWidgetTreeResource(McpServer server, TurboBridgeClient client) {
   server.registerResource(
     'Widget Tree',
     'flutter://app/tree',
-    (description: 'Current widget tree snapshot of the running Flutter app', mimeType: 'application/json'),
+    (
+      description: 'Current widget tree snapshot of the running Flutter app',
+      mimeType: 'application/json'
+    ),
     (uri, extra) async {
       try {
         final tree = await client.widgetTree(depth: 10);
@@ -16,7 +19,8 @@ void registerWidgetTreeResource(McpServer server, TurboBridgeClient client) {
           contents: [
             TextResourceContents(
               uri: uri.toString(),
-              text: const JsonEncoder.withIndent('  ').convert(_nodeToJson(tree)),
+              text:
+                  const JsonEncoder.withIndent('  ').convert(_nodeToJson(tree)),
               mimeType: 'application/json',
             ),
           ],
