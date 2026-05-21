@@ -71,4 +71,4 @@ jobs:
 
       - name: Run benchmark
         working-directory: apps/benchmark
-        run: dart run bin/benchmark.dart --bridge-host localhost --bridge-port 8888
+        run: dart run bin/benchmark.dart --bridge-host localhost --bridge-port 8888 --bridge-only
