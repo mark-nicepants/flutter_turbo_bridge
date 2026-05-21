@@ -113,7 +113,31 @@ Every new feature follows this lifecycle:
 | `docs/IMPLEMENTATION_PLAN.md` | API changes, architecture changes |
 | `ARCHITECTURE.md` | Research findings, fundamental design changes |
 | `AGENTS.md` | Workflow or convention changes |
-| Package `README.md` files | Public API changes |
+| `README.md` (root) | New packages, architecture changes, setup changes |
+| `packages/turbo_bridge/README.md` | HTTP API changes, new endpoints, config options |
+| `packages/turbo_bridge_client/README.md` | Client API changes, new methods, models |
+| `packages/turbo_bridge_mcp/README.md` | New MCP tools/resources/prompts, setup changes |
+| `docs/BENCHMARK_RESULTS.md` | New benchmark operations, target changes, setup changes |
+| `.github/workflows/ci.yml` | CI/CD pipeline changes, new jobs or steps |
+
+## README Maintenance Rules
+
+Each README targets a specific audience — keep content aligned:
+
+| README | Audience | Focus |
+|--------|----------|-------|
+| Root `README.md` | Evaluators, contributors | Overview, quick start, architecture diagram |
+| `turbo_bridge/README.md` | Flutter developers adding bridge to their app | HTTP API reference, config, security |
+| `turbo_bridge_client/README.md` | Tool builders, CI/pipeline developers | Dart API reference, examples, error handling |
+| `turbo_bridge_mcp/README.md` | AI/LLM developers, MCP host users | MCP tool/resource/prompt docs, host setup |
+
+When making changes:
+
+1. **New endpoint in `turbo_bridge`** → Update HTTP API section in `turbo_bridge/README.md`
+2. **New method in `TurboBridgeClient`** → Update API reference in `turbo_bridge_client/README.md`
+3. **New MCP tool/resource/prompt** → Update the relevant section in `turbo_bridge_mcp/README.md`
+4. **New package or major architecture change** → Update root `README.md` diagram and packages table
+5. **New CLI flag in MCP server** → Update CLI Options section in `turbo_bridge_mcp/README.md`
 
 ## Performance Targets (p95)
 

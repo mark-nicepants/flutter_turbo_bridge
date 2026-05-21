@@ -7,13 +7,12 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: read
-
 jobs:
   analyze-and-test:
     name: Analyze & Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +46,9 @@ jobs:
     name: Benchmark (macOS)
     runs-on: macos-latest
     needs: analyze-and-test
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -72,3 +74,129 @@ jobs:
       - name: Run benchmark
         working-directory: apps/benchmark
         run: dart run bin/benchmark.dart --bridge-host localhost --bridge-port 8888 --bridge-only
+
+      - name: Transform results for tracking
+        if: always()
+        working-directory: apps/benchmark
+        run: |
+          if [ -f benchmark_results.json ]; then
+            jq '[.results[] | select(.success) | {name: (.name + " (p95)"), unit: "ms", value: .p95_ms}]' \
+              benchmark_results.json > benchmark_gh.json
+          fi
+
+      - name: Track benchmark results
+        if: always()
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Flutter Turbo Bridge
+          tool: customSmallerIsBetter
+          output-file-path: apps/benchmark/benchmark_gh.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: benchmarks
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+          max-items-in-chart: 50
+
+      - name: Comment benchmark results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+
+            // Read current results
+            let current;
+            try {
+              current = JSON.parse(fs.readFileSync('apps/benchmark/benchmark_results.json', 'utf8'));
+            } catch (e) {
+              core.info(`No benchmark results found: ${e.message}`);
+              return;
+            }
+
+            // Load baseline from gh-pages
+            let baseline = new Map();
+            let hasBaseline = false;
+            try {
+              execSync('git fetch origin gh-pages --depth=1', { stdio: 'pipe' });
+              const raw = execSync('git show origin/gh-pages:benchmarks/data.js', { encoding: 'utf8' });
+              const jsonStr = raw.replace(/^window\.BENCHMARK_DATA\s*=\s*/, '').replace(/;?\s*$/, '');
+              const data = JSON.parse(jsonStr);
+              const entries = data.entries?.['Flutter Turbo Bridge'] || [];
+              if (entries.length > 0) {
+                const latest = entries[entries.length - 1];
+                for (const b of latest.benches) {
+                  baseline.set(b.name, b.value);
+                }
+                hasBaseline = true;
+              }
+            } catch (e) {
+              core.info(`No baseline found: ${e.message}`);
+            }
+
+            // Build comparison table
+            let rows = '';
+            let regressions = 0;
+            let improvements = 0;
+
+            for (const r of current.results.filter(r => r.success)) {
+              const baseVal = baseline.get(`${r.name} (p95)`);
+              let change = '—';
+              let icon = '';
+
+              if (baseVal !== undefined && baseVal > 0) {
+                const diff = r.p95_ms - baseVal;
+                const pct = Math.round((diff / baseVal) * 100);
+                if (pct > 10) {
+                  change = `+${pct}%`;
+                  icon = ' 🔴';
+                  regressions++;
+                } else if (pct < -10) {
+                  change = `${pct}%`;
+                  icon = ' 🟢';
+                  improvements++;
+                } else {
+                  change = `${pct >= 0 ? '+' : ''}${pct}%`;
+                }
+              }
+
+              const met = r.meets_target ? '✅' : '❌';
+              rows += `| \`${r.name}\` | ${r.p50_ms}ms | ${r.p95_ms}ms | ${r.target_ms}ms | ${met} | ${change}${icon} |\n`;
+            }
+
+            let status = '✅ No significant changes';
+            if (regressions > 0 && improvements > 0) status = '⚠️ Mixed: regressions and improvements';
+            else if (regressions > 0) status = '🔴 Performance regression detected';
+            else if (improvements > 0) status = '🟢 Performance improvement detected';
+            if (!hasBaseline) status = '📊 First benchmark run (no baseline yet)';
+
+            const body = `## 📊 Benchmark Results\n\n${status}\n\n| Operation | p50 | p95 | Target | Met | vs Main |\n|-----------|-----|-----|--------|:---:|:-------:|\n${rows}\n<details>\n<summary>Details</summary>\n\n- **Runner**: macOS (GitHub Actions)\n- **Iterations**: ${current.iterations} (3 warmup)\n- **Mode**: Bridge-only (in-app HTTP server)\n- **Thresholds**: >10% slower = 🔴, >10% faster = 🟢\n- 📈 **[Historical trends](https://${context.repo.owner}.github.io/${context.repo.repo}/benchmarks/)**\n\n</details>`;
+
+            // Upsert: update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '## 📊 Benchmark Results';
+            const existing = comments.find(c => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

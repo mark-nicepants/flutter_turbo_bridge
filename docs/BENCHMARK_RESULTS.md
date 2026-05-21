@@ -59,3 +59,42 @@
 **12/12 benchmarks passed** (all bridge + all VM Service — inspector screenshot removed as it's designed for widget inspection, not whole-screen capture).
 
 The MVP architecture is validated: an in-app HTTP server with direct access to the render tree and binding layer delivers sub-20ms performance for all AI interaction primitives.
+
+---
+
+## Continuous Tracking
+
+Benchmark results are tracked automatically on every push to `main` and reported on every pull request.
+
+### Live Dashboard
+
+Historical benchmark charts are published to GitHub Pages:
+
+**https://mark-nicepants.github.io/flutter_turbo_bridge/benchmarks/**
+
+The dashboard shows p95 latency trends for all bridge operations over time (last 50 data points).
+
+### PR Comments
+
+Every pull request automatically receives a benchmark comparison comment showing:
+
+| Column | Description |
+|--------|-------------|
+| **p50 / p95** | Current latency measurements |
+| **Target** | Performance budget for the operation |
+| **Met** | Whether the p95 stays within budget |
+| **vs Main** | Percentage change compared to the latest `main` baseline |
+
+Change indicators:
+- 🟢 = >10% faster than baseline
+- 🔴 = >10% slower than baseline
+- No icon = within ±10% (noise threshold)
+
+### Setup
+
+To enable the GitHub Pages dashboard, configure the repository:
+
+1. Go to **Settings → Pages**
+2. Set **Source** to `Deploy from a branch`
+3. Set **Branch** to `gh-pages` / `/ (root)`
+4. The dashboard will be available after the first push to `main`
