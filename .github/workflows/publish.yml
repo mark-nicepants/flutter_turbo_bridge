@@ -42,6 +42,9 @@ jobs:
       - name: Run shared package checks
         uses: ./.github/actions/package-checks
 
+      - name: Set up Dart for pub.dev OIDC auth
+        uses: dart-lang/setup-dart@v1
+
       - name: Dry run publish
         if: ${{ github.event.inputs.dry-run == 'true' || github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run != 'false' }}
         run: melos publish --dry-run --yes
