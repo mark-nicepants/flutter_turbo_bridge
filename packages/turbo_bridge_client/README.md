@@ -6,7 +6,7 @@ Pure Dart client library for connecting to a running Flutter app via Turbo Bridg
 
 ```yaml
 dependencies:
-  turbo_bridge_client: ^0.1.3
+  turbo_bridge_client: ^0.1.4
 ```
 
 Or use the CLI:

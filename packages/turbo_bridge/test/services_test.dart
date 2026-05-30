@@ -359,7 +359,7 @@ void main() {
       expect(info['pixelRatio'], isA<double>());
       expect(info['platform'], isA<String>());
       expect(info['darkMode'], isA<bool>());
-      expect(info['bridgeVersion'], '0.1.3');
+      expect(info['bridgeVersion'], '0.1.4');
     });
   });
 

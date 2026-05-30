@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Wire up `dart-lang/setup-dart` in the publish workflow so pub.dev OIDC trusted publishing is used instead of falling back to interactive OAuth.
+- Bump reported `bridgeVersion` to keep the app-side compatibility metadata aligned with the released package version.
+
 ## 0.1.3
 
 - Update install guidance to prefer `flutter pub add`, document the FVM path, and show non-release bridge startup.
