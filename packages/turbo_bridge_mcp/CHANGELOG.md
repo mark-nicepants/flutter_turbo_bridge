@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Bump reported MCP server version to `0.1.4` so compatibility metadata aligns with the released package version.
+- Released alongside `turbo_bridge` 0.1.4 via the fixed pub.dev OIDC trusted publishing flow.
+
 ## 0.1.3
 
 - Rename the recommended MCP server key from `flutter` to `turbo_bridge` across host configuration examples.

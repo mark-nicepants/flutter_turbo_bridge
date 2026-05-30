@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Released alongside `turbo_bridge` 0.1.4 via the fixed pub.dev OIDC trusted publishing flow.
+
 ## 0.1.3
 
 - Refresh client dependencies, including `vm_service` 15.x.
