@@ -7,7 +7,8 @@ import '../response_metadata.dart';
 void registerWidgetTreeTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_widget_tree',
-    description: 'Get the current widget tree of the running Flutter app as JSON. '
+    description:
+        'Get the current widget tree of the running Flutter app as JSON. '
         'Includes widget types, keys, text content, and layout bounds. '
         'Use depth=-1 for unlimited depth. '
         'Optional x/y coordinates focus the tree on a smaller local subtree.',
@@ -23,7 +24,8 @@ void registerWidgetTreeTool(McpServer server, TurboBridgeClient client) {
           description: 'Optional focus Y coordinate in logical pixels',
         ),
         'ancestorLevels': JsonSchema.integer(
-          description: 'Ancestors to keep above the focused hit node (default 2)',
+          description:
+              'Ancestors to keep above the focused hit node (default 2)',
         ),
       },
     ),

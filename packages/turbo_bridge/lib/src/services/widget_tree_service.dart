@@ -24,7 +24,8 @@ class WidgetNode {
     if (!compact || rect != null) map['rect'] = rect;
     if (!compact || text != null) map['text'] = text;
     if (children.isNotEmpty) {
-      map['children'] = children.map((c) => c.toJson(compact: compact)).toList();
+      map['children'] =
+          children.map((c) => c.toJson(compact: compact)).toList();
     }
     return map;
   }
@@ -77,7 +78,8 @@ class WidgetTreeService {
 
   Element _stripFrameworkShell(Element element) {
     var current = element;
-    while (_frameworkShellTypes.contains(current.widget.runtimeType.toString())) {
+    while (
+        _frameworkShellTypes.contains(current.widget.runtimeType.toString())) {
       final child = _singleChildOf(current);
       if (child == null) {
         break;
@@ -134,7 +136,9 @@ class WidgetTreeService {
 
     element.visitChildren((child) {
       final childPath = _findDeepestHitPath(child, point);
-      if (childPath != null && (deepestChildPath == null || childPath.length > deepestChildPath!.length)) {
+      if (childPath != null &&
+          (deepestChildPath == null ||
+              childPath.length > deepestChildPath!.length)) {
         deepestChildPath = childPath;
       }
     });

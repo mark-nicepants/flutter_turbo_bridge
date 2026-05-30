@@ -62,14 +62,16 @@ class BridgeRouter {
   Future<Response> _handleScreenshot(Request request) async {
     final sw = Stopwatch()..start();
 
-    final pixelRatio = double.tryParse(request.url.queryParameters['pixelRatio'] ?? '') ?? 1.0;
+    final pixelRatio =
+        double.tryParse(request.url.queryParameters['pixelRatio'] ?? '') ?? 1.0;
 
     final bytes = await screenshotService.capture(pixelRatio: pixelRatio);
     sw.stop();
 
     if (bytes == null) {
       return Response(503,
-          body: jsonEncode({'error': 'No render tree available'}), headers: {'content-type': 'application/json'});
+          body: jsonEncode({'error': 'No render tree available'}),
+          headers: {'content-type': 'application/json'});
     }
 
     final headers = <String, String>{
@@ -94,11 +96,13 @@ class BridgeRouter {
   Response _handleTree(Request request) {
     final sw = Stopwatch()..start();
 
-    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ?? widgetTreeService.defaultDepth;
+    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ??
+        widgetTreeService.defaultDepth;
     final compact = request.url.queryParameters['compact'] != 'false';
     final focusX = double.tryParse(request.url.queryParameters['x'] ?? '');
     final focusY = double.tryParse(request.url.queryParameters['y'] ?? '');
-    final ancestorLevels = int.tryParse(request.url.queryParameters['ancestorLevels'] ?? '') ?? 2;
+    final ancestorLevels =
+        int.tryParse(request.url.queryParameters['ancestorLevels'] ?? '') ?? 2;
 
     if ((focusX == null) != (focusY == null)) {
       return Response(
@@ -119,12 +123,14 @@ class BridgeRouter {
 
     if (tree == null) {
       return Response(503,
-          body: jsonEncode({'error': 'No element tree available'}), headers: {'content-type': 'application/json'});
+          body: jsonEncode({'error': 'No element tree available'}),
+          headers: {'content-type': 'application/json'});
     }
 
     final body = jsonEncode({
       'captureTimeMs': sw.elapsedMilliseconds,
-      if (focusX != null && focusY != null) 'focusPoint': {'x': focusX, 'y': focusY},
+      if (focusX != null && focusY != null)
+        'focusPoint': {'x': focusX, 'y': focusY},
       if (focusX != null && focusY != null) 'ancestorLevels': ancestorLevels,
       'rootWidget': tree.toJson(compact: compact),
     });
@@ -164,7 +170,8 @@ class BridgeRouter {
 
   Response _handleHealth() {
     return Response.ok(
-      jsonEncode({'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
+      jsonEncode(
+          {'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
       headers: {'content-type': 'application/json'},
     );
   }
@@ -179,7 +186,8 @@ class BridgeRouter {
     final endY = (json['endY'] as num).toDouble();
     final steps = (json['steps'] as int?) ?? 10;
 
-    final result = gestureService.swipe(startX, startY, endX, endY, steps: steps);
+    final result =
+        gestureService.swipe(startX, startY, endX, endY, steps: steps);
 
     return Response.ok(
       jsonEncode(result.toJson()),
@@ -211,7 +219,8 @@ class BridgeRouter {
     final text = json['text'] as String;
     final replace = json['replace'] as bool? ?? false;
 
-    final result = await gestureService.enterText(text, replaceExisting: replace);
+    final result =
+        await gestureService.enterText(text, replaceExisting: replace);
 
     return Response.ok(
       jsonEncode(result.toJson()),

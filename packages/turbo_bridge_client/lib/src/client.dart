@@ -69,7 +69,8 @@ class TurboBridgeClient {
   }
 
   /// Get the widget tree with timing metadata.
-  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})> widgetTreeWithTiming({
+  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})>
+      widgetTreeWithTiming({
     int depth = 10,
     double? x,
     double? y,
@@ -132,7 +133,8 @@ class TurboBridgeClient {
   /// Inject a scroll gesture at the given position.
   ///
   /// Positive [dy] scrolls content up (finger moves up); negative scrolls down.
-  Future<TapResult> scroll(double x, double y, {double dx = 0, required double dy}) {
+  Future<TapResult> scroll(double x, double y,
+      {double dx = 0, required double dy}) {
     return _bridge.scroll(x, y, dx: dx, dy: dy);
   }
 
@@ -176,7 +178,8 @@ class TurboBridgeClient {
   /// Requires [connectVmService] to be called first.
   Future<String> evaluate(String expression) async {
     if (_vmService == null || !_vmService.isConnected) {
-      throw StateError('VM Service not connected. Call connectVmService() first.');
+      throw StateError(
+          'VM Service not connected. Call connectVmService() first.');
     }
     final result = await _vmService.evaluate(expression);
     return result.json?['valueAsString']?.toString() ?? result.toString();

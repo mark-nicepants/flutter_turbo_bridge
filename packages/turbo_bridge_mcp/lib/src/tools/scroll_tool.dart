@@ -12,11 +12,15 @@ void registerScrollTool(McpServer server, TurboBridgeClient client) {
         'Negative dy scrolls content down.',
     inputSchema: JsonSchema.object(
       properties: {
-        'x': JsonSchema.number(description: 'X coordinate of the scroll area center'),
-        'y': JsonSchema.number(description: 'Y coordinate of the scroll area center'),
+        'x': JsonSchema.number(
+            description: 'X coordinate of the scroll area center'),
+        'y': JsonSchema.number(
+            description: 'Y coordinate of the scroll area center'),
         'dy': JsonSchema.number(
-            description: 'Vertical scroll distance in logical pixels (positive = up, negative = down)'),
-        'dx': JsonSchema.number(description: 'Horizontal scroll distance (default: 0)'),
+            description:
+                'Vertical scroll distance in logical pixels (positive = up, negative = down)'),
+        'dx': JsonSchema.number(
+            description: 'Horizontal scroll distance (default: 0)'),
       },
       required: ['x', 'y', 'dy'],
     ),

@@ -1,4 +1,4 @@
-const String turboBridgeMcpVersion = '0.1.1';
+const String turboBridgeMcpVersion = '0.1.2';
 
 Map<String, dynamic> buildMcpCompatibilityInfo({
   required String bridgeVersion,
@@ -22,11 +22,13 @@ Map<String, dynamic> buildMcpCompatibilityInfo({
   }
 
   if (comparison > 0) {
-    metadata['updateHint'] = 'Bridge reports version $bridgeVersion while this MCP server is '
+    metadata['updateHint'] =
+        'Bridge reports version $bridgeVersion while this MCP server is '
         '$turboBridgeMcpVersion. Update turbo_bridge_mcp before continuing so '
         'the MCP tool contract stays aligned with the app bridge.';
   } else if (comparison < 0) {
-    metadata['updateHint'] = 'This MCP server is version $turboBridgeMcpVersion while the app bridge '
+    metadata['updateHint'] =
+        'This MCP server is version $turboBridgeMcpVersion while the app bridge '
         'reports $bridgeVersion. Upgrade turbo_bridge in the app if you need '
         'the latest MCP-exposed capabilities.';
   }
@@ -41,7 +43,9 @@ int? _compareVersions(String left, String right) {
     return null;
   }
 
-  final maxLength = leftParts.length > rightParts.length ? leftParts.length : rightParts.length;
+  final maxLength = leftParts.length > rightParts.length
+      ? leftParts.length
+      : rightParts.length;
   for (var index = 0; index < maxLength; index++) {
     final leftValue = index < leftParts.length ? leftParts[index] : 0;
     final rightValue = index < rightParts.length ? rightParts[index] : 0;

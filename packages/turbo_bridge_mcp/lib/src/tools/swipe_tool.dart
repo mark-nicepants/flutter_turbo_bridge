@@ -7,7 +7,8 @@ import '../response_metadata.dart';
 void registerSwipeTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_swipe',
-    description: 'Perform a swipe gesture in the Flutter app from start to end coordinates. '
+    description:
+        'Perform a swipe gesture in the Flutter app from start to end coordinates. '
         'Useful for dismissing items, navigating carousels, or triggering pull-to-refresh.',
     inputSchema: JsonSchema.object(
       properties: {
@@ -15,7 +16,8 @@ void registerSwipeTool(McpServer server, TurboBridgeClient client) {
         'startY': JsonSchema.number(description: 'Start Y in logical pixels'),
         'endX': JsonSchema.number(description: 'End X in logical pixels'),
         'endY': JsonSchema.number(description: 'End Y in logical pixels'),
-        'steps': JsonSchema.number(description: 'Number of intermediate move events (default: 10)'),
+        'steps': JsonSchema.number(
+            description: 'Number of intermediate move events (default: 10)'),
       },
       required: ['startX', 'startY', 'endX', 'endY'],
     ),
@@ -28,7 +30,8 @@ void registerSwipeTool(McpServer server, TurboBridgeClient client) {
       final steps = (args['steps'] as num?)?.toInt() ?? 10;
 
       try {
-        final result = await client.swipe(startX, startY, endX, endY, steps: steps);
+        final result =
+            await client.swipe(startX, startY, endX, endY, steps: steps);
         final completedAtUtc = DateTime.now().toUtc();
         return CallToolResult(
           content: [

@@ -40,4 +40,4 @@ scripts:
         - turbo_bridge
 
   format:
-    run: dart format --set-exit-if-changed .
+    run: dart format --line-length 80 --set-exit-if-changed .

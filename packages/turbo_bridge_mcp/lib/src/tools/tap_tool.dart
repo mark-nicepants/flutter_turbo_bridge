@@ -7,7 +7,8 @@ import '../response_metadata.dart';
 void registerTapTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_tap',
-    description: 'Tap at the given screen coordinates in the running Flutter app. '
+    description:
+        'Tap at the given screen coordinates in the running Flutter app. '
         'Use flutter_find_widget first to locate tap targets.',
     inputSchema: JsonSchema.object(
       properties: {

@@ -150,7 +150,8 @@ void main() {
         final mockClient = http_testing.MockClient((request) async {
           expect(request.url.path, '/tree');
           expect(request.url.queryParameters['depth'], '5');
-          return http.Response(responseBody, 200, headers: {'content-type': 'application/json'});
+          return http.Response(responseBody, 200,
+              headers: {'content-type': 'application/json'});
         });
 
         connection = BridgeConnection.withClient(
@@ -178,7 +179,8 @@ void main() {
           expect(request.url.queryParameters['x'], '120.5');
           expect(request.url.queryParameters['y'], '240.25');
           expect(request.url.queryParameters['ancestorLevels'], '3');
-          return http.Response(responseBody, 200, headers: {'content-type': 'application/json'});
+          return http.Response(responseBody, 200,
+              headers: {'content-type': 'application/json'});
         });
 
         connection = BridgeConnection.withClient(
@@ -251,7 +253,7 @@ void main() {
               'platform': 'ios',
               'darkMode': false,
               'currentRoute': '/home',
-              'bridgeVersion': '0.1.1',
+              'bridgeVersion': '0.1.2',
               'locale': 'en_US',
             }),
             200,
@@ -271,7 +273,7 @@ void main() {
         expect(info.pixelRatio, 3.0);
         expect(info.platform, 'ios');
         expect(info.darkMode, isFalse);
-        expect(info.bridgeVersion, '0.1.1');
+        expect(info.bridgeVersion, '0.1.2');
       });
     });
   });

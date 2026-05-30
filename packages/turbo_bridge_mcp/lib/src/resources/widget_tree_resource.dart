@@ -8,7 +8,10 @@ void registerWidgetTreeResource(McpServer server, TurboBridgeClient client) {
   server.registerResource(
     'Widget Tree',
     'flutter://app/tree',
-    (description: 'Current widget tree snapshot of the running Flutter app', mimeType: 'application/json'),
+    (
+      description: 'Current widget tree snapshot of the running Flutter app',
+      mimeType: 'application/json'
+    ),
     (uri, extra) async {
       final startedAtUtc = DateTime.now().toUtc();
       try {

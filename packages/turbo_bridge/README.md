@@ -10,7 +10,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  turbo_bridge: ^0.1.1
+  turbo_bridge: ^0.1.2
 ```
 
 Or use the CLI:
@@ -120,7 +120,7 @@ Returns app metadata.
   "pixelRatio": 3.0,
   "platform": "macos",
   "darkMode": false,
-  "bridgeVersion": "0.1.1"
+  "bridgeVersion": "0.1.2"
 }
 ```
 

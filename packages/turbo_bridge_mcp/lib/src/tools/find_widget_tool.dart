@@ -7,7 +7,8 @@ import '../response_metadata.dart';
 void registerFindWidgetTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_find_widget',
-    description: 'Find a widget in the Flutter app by text content, ValueKey, or widget type. '
+    description:
+        'Find a widget in the Flutter app by text content, ValueKey, or widget type. '
         'Returns the widget\'s position and bounds so you can tap it. '
         'Provide exactly one of: text, key, or type.',
     inputSchema: JsonSchema.object(
@@ -22,19 +23,24 @@ void registerFindWidgetTool(McpServer server, TurboBridgeClient client) {
           description: 'Find by widget type name (e.g. "ElevatedButton")',
         ),
         'visibleOnly': JsonSchema.boolean(
-          description: 'Prefer only matches that intersect the visible viewport. Defaults to true.',
+          description:
+              'Prefer only matches that intersect the visible viewport. Defaults to true.',
         ),
         'currentRouteOnly': JsonSchema.boolean(
-          description: 'Restrict matches to the current top route when possible. Defaults to false.',
+          description:
+              'Restrict matches to the current top route when possible. Defaults to false.',
         ),
         'interactiveOnly': JsonSchema.boolean(
-          description: 'Restrict matches to widgets with an interactive tap target. Defaults to false.',
+          description:
+              'Restrict matches to widgets with an interactive tap target. Defaults to false.',
         ),
         'nearX': JsonSchema.number(
-          description: 'Optional X coordinate to bias match ranking toward a region.',
+          description:
+              'Optional X coordinate to bias match ranking toward a region.',
         ),
         'nearY': JsonSchema.number(
-          description: 'Optional Y coordinate to bias match ranking toward a region.',
+          description:
+              'Optional Y coordinate to bias match ranking toward a region.',
         ),
         'limit': JsonSchema.number(
           description: 'Maximum number of matches to return. Defaults to 10.',
@@ -111,7 +117,8 @@ void registerFindWidgetTool(McpServer server, TurboBridgeClient client) {
             'type': node.type,
             if (node.key != null) 'key': node.key,
             if (node.text != null) 'text': node.text,
-            if (node.center != null) 'center': {'x': node.center!.x, 'y': node.center!.y},
+            if (node.center != null)
+              'center': {'x': node.center!.x, 'y': node.center!.y},
             if (node.bounds != null)
               'bounds': {
                 'x': node.bounds!.x,
@@ -122,7 +129,8 @@ void registerFindWidgetTool(McpServer server, TurboBridgeClient client) {
             if (node.matchedBy != null) 'matchedBy': node.matchedBy,
             if (node.score != null) 'score': node.score,
             if (node.isVisible != null) 'isVisible': node.isVisible,
-            if (node.isCurrentRoute != null) 'isCurrentRoute': node.isCurrentRoute,
+            if (node.isCurrentRoute != null)
+              'isCurrentRoute': node.isCurrentRoute,
             if (node.routeName != null) 'routeName': node.routeName,
             if (node.tapTargetType != null) 'tapTargetType': node.tapTargetType,
             if (node.tapTargetKey != null) 'tapTargetKey': node.tapTargetKey,

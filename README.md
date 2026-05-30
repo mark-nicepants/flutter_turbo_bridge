@@ -175,8 +175,8 @@ melos run format
 
 ## CI/CD
 
-- **CI** runs on every push/PR: analyze, format check, test all packages, benchmark on macOS
-- **Publish** triggered on `v*` tags: publishes all packages to pub.dev via pub.dev trusted publishing (GitHub OIDC)
+- **CI** runs on every push/PR: shared package checks plus benchmark on macOS
+- **Publish** triggered on `v*` tags: reruns the shared package checks, then publishes all packages to pub.dev via pub.dev trusted publishing (GitHub OIDC)
 - **First release** of each package must still be published manually on pub.dev before GitHub Actions can publish later versions
 - **Secrets** are not required for the GitHub Actions flow once automated publishing is enabled on each package's pub.dev admin page
 

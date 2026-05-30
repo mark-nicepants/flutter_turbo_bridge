@@ -27,9 +27,10 @@ class ScreenshotService {
     final binding = WidgetsBinding.instance;
     final surfaceSize = _surfaceSizeFor(binding);
     if (surfaceSize == null) return null;
+    final isWidgetTestBinding = _isWidgetTestBinding(binding);
 
     final renderView = _findRenderView(binding);
-    if (renderView != null && !_isWidgetTestBinding(binding)) {
+    if (renderView != null && !isWidgetTestBinding) {
       if (renderView.debugNeedsPaint) {
         binding.scheduleFrame();
         await binding.endOfFrame;
@@ -50,12 +51,16 @@ class ScreenshotService {
     var renderBoundary = _findCaptureBoundary(
       binding,
       surfaceSize: surfaceSize,
-      requirePainted: true,
+      requirePainted: !isWidgetTestBinding,
     );
-    renderBoundary ??= _findCaptureBoundary(binding, surfaceSize: surfaceSize);
+    renderBoundary ??= _findCaptureBoundary(
+      binding,
+      surfaceSize: surfaceSize,
+      requirePainted: false,
+    );
     if (renderBoundary == null) return null;
 
-    if (renderBoundary.debugNeedsPaint) {
+    if (renderBoundary.debugNeedsPaint && !isWidgetTestBinding) {
       binding.scheduleFrame();
       await binding.endOfFrame;
       renderBoundary = _findCaptureBoundary(
@@ -106,7 +111,8 @@ class ScreenshotService {
 
     void visitor(Element element, {bool isOffstage = false}) {
       final widget = element.widget;
-      final nextIsOffstage = isOffstage || (widget is Offstage && widget.offstage);
+      final nextIsOffstage =
+          isOffstage || (widget is Offstage && widget.offstage);
       if (nextIsOffstage) {
         return;
       }
@@ -148,7 +154,8 @@ class ScreenshotService {
 
   Element _stripFrameworkShell(Element element) {
     var current = element;
-    while (_frameworkShellTypes.contains(current.widget.runtimeType.toString())) {
+    while (
+        _frameworkShellTypes.contains(current.widget.runtimeType.toString())) {
       final child = _singleChildOf(current);
       if (child == null) {
         break;

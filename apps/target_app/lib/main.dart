@@ -208,8 +208,7 @@ class _FormPageState extends State<FormPage> {
             key: const ValueKey('submit_button'),
             onPressed: () {
               setState(() {
-                _status =
-                    'Submitted: ${_nameController.text}, ${_emailController.text}';
+                _status = 'Submitted: ${_nameController.text}, ${_emailController.text}';
               });
             },
             child: const Text('Submit'),

@@ -150,7 +150,8 @@ class FindService {
 
     void visit(Element element, {required bool isOffstage}) {
       final widget = element.widget;
-      final nextIsOffstage = isOffstage || (widget is Offstage && widget.offstage);
+      final nextIsOffstage =
+          isOffstage || (widget is Offstage && widget.offstage);
       String? matchedBy;
 
       // Match by key
@@ -174,8 +175,11 @@ class FindService {
           widgetText = widget.controller.text;
         }
 
-        if (widgetText != null && widgetText.toLowerCase().contains(text.toLowerCase())) {
-          matchedBy = widgetText.toLowerCase() == text.toLowerCase() ? 'text-exact' : 'text-substring';
+        if (widgetText != null &&
+            widgetText.toLowerCase().contains(text.toLowerCase())) {
+          matchedBy = widgetText.toLowerCase() == text.toLowerCase()
+              ? 'text-exact'
+              : 'text-substring';
         }
       }
 
@@ -183,7 +187,9 @@ class FindService {
       if (type != null && matchedBy == null) {
         final typeName = widget.runtimeType.toString();
         if (typeName.toLowerCase().contains(type.toLowerCase())) {
-          matchedBy = typeName.toLowerCase() == type.toLowerCase() ? 'type-exact' : 'type-substring';
+          matchedBy = typeName.toLowerCase() == type.toLowerCase()
+              ? 'type-exact'
+              : 'type-substring';
         }
       }
 
@@ -232,7 +238,8 @@ class FindService {
         );
       }
 
-      element.visitChildren((child) => visit(child, isOffstage: nextIsOffstage));
+      element
+          .visitChildren((child) => visit(child, isOffstage: nextIsOffstage));
     }
 
     visit(rootElement, isOffstage: false);
@@ -245,7 +252,8 @@ class FindService {
     );
 
     selected.sort((a, b) => b.score.compareTo(a.score));
-    matches.addAll(selected.take(limit).map((candidate) => candidate.toFoundWidget()));
+    matches.addAll(
+        selected.take(limit).map((candidate) => candidate.toFoundWidget()));
 
     sw.stop();
     return FindResult(matches: matches, searchTimeMs: sw.elapsedMilliseconds);
@@ -428,7 +436,8 @@ class FindService {
       final dy = bounds.center.dy - targetY;
       final distance = math.sqrt((dx * dx) + (dy * dy));
       final maxDistance = math.sqrt(
-        (viewportRect.width * viewportRect.width) + (viewportRect.height * viewportRect.height),
+        (viewportRect.width * viewportRect.width) +
+            (viewportRect.height * viewportRect.height),
       );
       score += (1 - math.min(distance / maxDistance, 1)) * 25;
     }

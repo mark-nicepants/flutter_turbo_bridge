@@ -1,0 +1,35 @@
+name: Package checks
+description: Set up the Flutter workspace and run shared package analysis, format checks, and tests.
+
+runs:
+  using: composite
+  steps:
+    - uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.2'
+        channel: stable
+        cache: true
+
+    - name: Install Melos
+      shell: bash
+      run: dart pub global activate melos
+
+    - name: Bootstrap
+      shell: bash
+      run: melos bootstrap
+
+    - name: Analyze
+      shell: bash
+      run: melos run analyze
+
+    - name: Format check
+      shell: bash
+      run: melos run format
+
+    - name: Test pure Dart packages
+      shell: bash
+      run: melos run test:dart
+
+    - name: Test Flutter package
+      shell: bash
+      run: melos run test:flutter

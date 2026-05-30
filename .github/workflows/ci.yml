@@ -16,31 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.0'
-          channel: stable
-          cache: true
-
-      - name: Install Melos
-        run: dart pub global activate melos
-
-      - name: Bootstrap
-        run: melos bootstrap
-
-      - name: Analyze
-        run: melos run analyze
-
-      - name: Format check
-        run: dart format --set-exit-if-changed .
-
-      - name: Test (pure Dart packages)
-        run: |
-          cd packages/turbo_bridge_client && dart test
-          cd ../turbo_bridge_mcp && dart test
-
-      - name: Test (Flutter package)
-        run: cd packages/turbo_bridge && flutter test
+      - name: Run shared package checks
+        uses: ./.github/actions/package-checks
 
   benchmark:
     name: Benchmark (macOS)
@@ -54,7 +31,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.38.2'
           channel: stable
           cache: true
 

@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:flutter_turbo_bridge_benchmark/src/bridge_readiness.dart';
 import 'package:turbo_bridge_client/turbo_bridge_client.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
@@ -313,9 +314,14 @@ Future<void> main(List<String> args) async {
     // Health check
     print('  health...');
     try {
-      final healthy = await client.isConnected();
+      final healthy = await waitForBridge(
+        isConnected: client.isConnected,
+      );
       if (!healthy) {
         print('  Bridge not reachable at http://$bridgeHost:$bridgePort');
+        print(
+          '  Waited ${defaultBridgeStartupTimeout.inSeconds}s for the app bridge to start.',
+        );
         print('  Skipping bridge benchmarks.\n');
       } else {
         final d = await _bench(() => client.isConnected(), count: iterCount);

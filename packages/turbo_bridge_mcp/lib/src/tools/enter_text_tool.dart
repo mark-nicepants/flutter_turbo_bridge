@@ -7,13 +7,16 @@ import '../response_metadata.dart';
 void registerEnterTextTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_enter_text',
-    description: 'Enter text into the currently focused text field in the Flutter app. '
+    description:
+        'Enter text into the currently focused text field in the Flutter app. '
         'Tap a text field first using flutter_tap or flutter_find_widget to focus it, '
         'then use this tool to type text.',
     inputSchema: JsonSchema.object(
       properties: {
         'text': JsonSchema.string(description: 'The text to enter'),
-        'replace': JsonSchema.boolean(description: 'If true, replaces existing text. If false (default), appends.'),
+        'replace': JsonSchema.boolean(
+            description:
+                'If true, replaces existing text. If false (default), appends.'),
       },
       required: ['text'],
     ),

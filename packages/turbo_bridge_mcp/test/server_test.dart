@@ -107,7 +107,8 @@ void main() {
       final image = result.content[0] as ImageContent;
       expect(image.mimeType, 'image/png');
       expect(image.data, base64Encode(pngBytes));
-      final metadata = jsonDecode((result.content[1] as TextContent).text) as Map<String, dynamic>;
+      final metadata = jsonDecode((result.content[1] as TextContent).text)
+          as Map<String, dynamic>;
       expect(metadata['width'], 400);
       expect(metadata['_meta']['captureTimeMs'], 5);
       expect(metadata['_meta']['roundTripMs'], 10);
@@ -116,13 +117,14 @@ void main() {
     });
 
     test('passes pixelRatio parameter and default delay', () async {
-      when(() => mockClient.screenshot(pixelRatio: 2.0, delayMs: 75)).thenAnswer((_) async => ScreenshotResult(
-            bytes: Uint8List(0),
-            captureTimeMs: 5,
-            width: 800,
-            height: 1600,
-            roundTripMs: 10,
-          ));
+      when(() => mockClient.screenshot(pixelRatio: 2.0, delayMs: 75))
+          .thenAnswer((_) async => ScreenshotResult(
+                bytes: Uint8List(0),
+                captureTimeMs: 5,
+                width: 800,
+                height: 1600,
+                roundTripMs: 10,
+              ));
 
       await mcpClient.callTool(
         CallToolRequest(
@@ -131,17 +133,19 @@ void main() {
         ),
       );
 
-      verify(() => mockClient.screenshot(pixelRatio: 2.0, delayMs: 75)).called(1);
+      verify(() => mockClient.screenshot(pixelRatio: 2.0, delayMs: 75))
+          .called(1);
     });
 
     test('passes explicit delay parameter', () async {
-      when(() => mockClient.screenshot(pixelRatio: 1.0, delayMs: 120)).thenAnswer((_) async => ScreenshotResult(
-            bytes: Uint8List(0),
-            captureTimeMs: 5,
-            width: 400,
-            height: 800,
-            roundTripMs: 10,
-          ));
+      when(() => mockClient.screenshot(pixelRatio: 1.0, delayMs: 120))
+          .thenAnswer((_) async => ScreenshotResult(
+                bytes: Uint8List(0),
+                captureTimeMs: 5,
+                width: 400,
+                height: 800,
+                roundTripMs: 10,
+              ));
 
       await mcpClient.callTool(
         CallToolRequest(
@@ -150,7 +154,8 @@ void main() {
         ),
       );
 
-      verify(() => mockClient.screenshot(pixelRatio: 1.0, delayMs: 120)).called(1);
+      verify(() => mockClient.screenshot(pixelRatio: 1.0, delayMs: 120))
+          .called(1);
     });
 
     test('rejects negative delay', () async {
@@ -162,7 +167,8 @@ void main() {
       );
 
       expect(result.isError, isTrue);
-      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      final json = jsonDecode((result.content[0] as TextContent).text)
+          as Map<String, dynamic>;
       expect(json['error'], contains('delayMs must be >= 0'));
       expect(json['_meta']['startedAtUtc'], isA<String>());
     });
@@ -178,7 +184,8 @@ void main() {
       );
 
       expect(result.isError, isTrue);
-      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      final json = jsonDecode((result.content[0] as TextContent).text)
+          as Map<String, dynamic>;
       expect(json['error'], contains('Screenshot failed'));
     });
   });
@@ -194,7 +201,8 @@ void main() {
         ],
       );
       when(() => mockClient.widgetTreeWithTiming(depth: any(named: 'depth')))
-          .thenAnswer((_) async => (tree: tree, captureTimeMs: 2, roundTripMs: 5));
+          .thenAnswer(
+              (_) async => (tree: tree, captureTimeMs: 2, roundTripMs: 5));
 
       final result = await mcpClient.callTool(
         CallToolRequest(name: 'flutter_widget_tree', arguments: {}),
@@ -211,11 +219,12 @@ void main() {
     });
 
     test('passes depth parameter', () async {
-      when(() => mockClient.widgetTreeWithTiming(depth: 5)).thenAnswer((_) async => (
-            tree: WidgetNode(type: 'Root'),
-            captureTimeMs: 1,
-            roundTripMs: 2,
-          ));
+      when(() => mockClient.widgetTreeWithTiming(depth: 5))
+          .thenAnswer((_) async => (
+                tree: WidgetNode(type: 'Root'),
+                captureTimeMs: 1,
+                roundTripMs: 2,
+              ));
 
       await mcpClient.callTool(
         CallToolRequest(
@@ -246,7 +255,8 @@ void main() {
         ),
       );
 
-      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      final json = jsonDecode((result.content[0] as TextContent).text)
+          as Map<String, dynamic>;
       expect(json['type'], 'Container');
       expect(json['_meta']['focusPoint']['x'], 120.0);
       expect(json['_meta']['ancestorLevels'], 3);
@@ -267,18 +277,20 @@ void main() {
       );
 
       expect(result.isError, isTrue);
-      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      final json = jsonDecode((result.content[0] as TextContent).text)
+          as Map<String, dynamic>;
       expect(json['error'], contains('x and y must be provided together'));
     });
   });
 
   group('tap tool', () {
     test('returns result on success', () async {
-      when(() => mockClient.tap(any(), any())).thenAnswer((_) async => TapResult(
-            success: true,
-            executionTimeMs: 1,
-            roundTripMs: 5,
-          ));
+      when(() => mockClient.tap(any(), any()))
+          .thenAnswer((_) async => TapResult(
+                success: true,
+                executionTimeMs: 1,
+                roundTripMs: 5,
+              ));
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -296,7 +308,8 @@ void main() {
     });
 
     test('returns error on failure', () async {
-      when(() => mockClient.tap(any(), any())).thenThrow(Exception('No widget at position'));
+      when(() => mockClient.tap(any(), any()))
+          .thenThrow(Exception('No widget at position'));
 
       final result = await mcpClient.callTool(
         CallToolRequest(
@@ -317,7 +330,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.1',
+            bridgeVersion: '0.1.2',
             currentRoute: '/',
             locale: 'en_US',
           ));
@@ -332,26 +345,28 @@ void main() {
       expect(json['platform'], 'macos');
       expect(json['currentRoute'], '/');
       expect(json['locale'], 'en_US');
-      expect(json['mcpServerVersion'], '0.1.1');
+      expect(json['mcpServerVersion'], '0.1.2');
       expect(json['mcpVersionStatus'], 'up-to-date');
       expect(json['_meta']['startedAtUtc'], isA<String>());
     });
 
-    test('returns an update hint when the bridge is newer than the MCP server', () async {
+    test('returns an update hint when the bridge is newer than the MCP server',
+        () async {
       when(() => mockClient.appInfo()).thenAnswer((_) async => AppInfo(
             screenWidth: 393.0,
             screenHeight: 852.0,
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.2',
+            bridgeVersion: '0.1.3',
           ));
 
       final result = await mcpClient.callTool(
         CallToolRequest(name: 'flutter_app_info', arguments: {}),
       );
 
-      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      final json = jsonDecode((result.content[0] as TextContent).text)
+          as Map<String, dynamic>;
       expect(json['mcpVersionStatus'], 'update-recommended');
       expect(json['updateHint'], contains('Update turbo_bridge_mcp'));
     });
@@ -359,7 +374,8 @@ void main() {
 
   group('find_widget tool', () {
     test('finds widget by text', () async {
-      when(() => mockClient.find(text: 'Counter', key: null, type: null, limit: 10))
+      when(() => mockClient.find(
+              text: 'Counter', key: null, type: null, limit: 10))
           .thenAnswer((_) async => const FindResponse(
                 found: true,
                 count: 1,
@@ -394,13 +410,17 @@ void main() {
     });
 
     test('finds widget by key', () async {
-      when(() => mockClient.find(text: null, key: 'increment_btn', type: null, limit: 10))
+      when(() => mockClient.find(
+              text: null, key: 'increment_btn', type: null, limit: 10))
           .thenAnswer((_) async => const FindResponse(
                 found: true,
                 count: 1,
                 searchTimeMs: 2,
                 roundTripMs: 5,
-                results: [FoundWidgetResult(type: 'FloatingActionButton', key: 'increment_btn')],
+                results: [
+                  FoundWidgetResult(
+                      type: 'FloatingActionButton', key: 'increment_btn')
+                ],
               ));
 
       final result = await mcpClient.callTool(
@@ -416,7 +436,8 @@ void main() {
     });
 
     test('finds widget by type', () async {
-      when(() => mockClient.find(text: null, key: null, type: 'ElevatedButton', limit: 10))
+      when(() => mockClient.find(
+              text: null, key: null, type: 'ElevatedButton', limit: 10))
           .thenAnswer((_) async => const FindResponse(
                 found: true,
                 count: 2,
@@ -441,7 +462,8 @@ void main() {
     });
 
     test('returns not found when no match', () async {
-      when(() => mockClient.find(text: 'nonexistent', key: null, type: null, limit: 10))
+      when(() => mockClient.find(
+              text: 'nonexistent', key: null, type: null, limit: 10))
           .thenAnswer((_) async => const FindResponse(
                 found: false,
                 count: 0,
@@ -471,7 +493,8 @@ void main() {
       );
 
       expect(result.isError, isTrue);
-      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      final json = jsonDecode((result.content[0] as TextContent).text)
+          as Map<String, dynamic>;
       expect(json['error'], contains('Provide at least one of'));
     });
   });
@@ -484,7 +507,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.1',
+            bridgeVersion: '0.1.2',
           ));
 
       final result = await mcpClient.readResource(
@@ -494,16 +517,17 @@ void main() {
       final text = (result.contents[0] as TextResourceContents).text;
       final json = jsonDecode(text) as Map<String, dynamic>;
       expect(json['platform'], 'macos');
-      expect(json['mcpServerVersion'], '0.1.1');
+      expect(json['mcpServerVersion'], '0.1.2');
       expect(json['_meta']['startedAtUtc'], isA<String>());
     });
 
     test('widget tree resource returns JSON', () async {
-      when(() => mockClient.widgetTreeWithTiming(depth: 10)).thenAnswer((_) async => (
-            tree: WidgetNode(type: 'MaterialApp'),
-            captureTimeMs: 2,
-            roundTripMs: 5,
-          ));
+      when(() => mockClient.widgetTreeWithTiming(depth: 10))
+          .thenAnswer((_) async => (
+                tree: WidgetNode(type: 'MaterialApp'),
+                captureTimeMs: 2,
+                roundTripMs: 5,
+              ));
 
       final result = await mcpClient.readResource(
         ReadResourceRequest(uri: 'flutter://app/tree'),

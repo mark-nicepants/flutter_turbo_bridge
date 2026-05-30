@@ -11,22 +11,26 @@ const int _defaultScreenshotDelayMs = 75;
 void registerScreenshotTool(McpServer server, TurboBridgeClient client) {
   server.registerTool(
     'flutter_screenshot',
-    description: 'Capture a screenshot of the running Flutter app. Returns a PNG image. '
+    description:
+        'Capture a screenshot of the running Flutter app. Returns a PNG image. '
         'By default, waits 75ms before capture to reduce stale frames after taps and navigation.',
     inputSchema: JsonSchema.object(
       properties: {
         'pixelRatio': JsonSchema.number(
-          description: 'Pixel ratio for the screenshot (1.0 = logical pixels, 2.0 = retina)',
+          description:
+              'Pixel ratio for the screenshot (1.0 = logical pixels, 2.0 = retina)',
         ),
         'delayMs': JsonSchema.number(
-          description: 'Milliseconds to wait before capture. Defaults to 75ms to let the UI settle after interactions.',
+          description:
+              'Milliseconds to wait before capture. Defaults to 75ms to let the UI settle after interactions.',
         ),
       },
     ),
     callback: (args, extra) async {
       final startedAtUtc = DateTime.now().toUtc();
       final pixelRatio = (args['pixelRatio'] as num?)?.toDouble() ?? 1.0;
-      final delayMs = (args['delayMs'] as num?)?.toInt() ?? _defaultScreenshotDelayMs;
+      final delayMs =
+          (args['delayMs'] as num?)?.toInt() ?? _defaultScreenshotDelayMs;
 
       if (delayMs < 0) {
         final completedAtUtc = DateTime.now().toUtc();

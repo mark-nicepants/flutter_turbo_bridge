@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Share package checks with CI before tagged pub.dev publishes.
+- Align MCP compatibility metadata and docs for the automated release.
+
 ## 0.1.1
 
 - Align package and MCP server version reporting.
