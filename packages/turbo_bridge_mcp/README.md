@@ -210,6 +210,28 @@ Enters text into the currently focused text field.
 
 **Returns:** Success status plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `executionTimeMs`, and `roundTripMs`
 
+### `flutter_recent_logs`
+
+Returns recent app-emitted log lines that the app pushed into
+`TurboBridge.instance.logs`. Use this to inspect what the running app
+has been doing without hooking into the device's system logs.
+
+**Parameters:**
+- `limit` (integer, optional) — Max entries to return (default 50)
+- `level` (string, optional) — Minimum severity: `trace`, `debug`, `info`, `warn`, `error`
+
+**Returns:** `{ entries: [{ id, timestamp, level, message, category?, data?, error?, stackTrace? }], count }`
+
+### `flutter_recent_network`
+
+Returns recent network calls that the app pushed into
+`TurboBridge.instance.network` from its HTTP client interceptors.
+
+**Parameters:**
+- `limit` (integer, optional) — Max calls to return (default 50)
+
+**Returns:** `{ entries: [{ id, timestamp, method, url, status, durationMs, error?, responseBodySize? }], count }`
+
 ## Timing Model
 
 Every MCP tool and resource response now includes a `_meta` object with UTC start and completion stamps. Use it like this:

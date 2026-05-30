@@ -4,10 +4,34 @@ import 'package:turbo_bridge/turbo_bridge.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start the Turbo Bridge server
+  // Start the Turbo Bridge server (with DevTools UI on 8889 for local
+  // browser inspection — never enable in a production build).
   await TurboBridge.start(
-    config: const BridgeConfig(port: 8888),
+    config: const BridgeConfig(
+      port: 8888,
+      enableDevTools: true,
+      devToolsPort: 8889,
+    ),
     ensureInitialized: false,
+  );
+
+  // Demo: pump a few app logs and a fake network call so DevTools has
+  // something to show out of the box. Remove in a real app and wire to
+  // your actual logging/HTTP interceptors instead.
+  final bridge = TurboBridge.instance;
+  bridge.logs.info('App started', category: 'lifecycle');
+  bridge.logs.debug('Loaded shared preferences', category: 'storage');
+  bridge.logs.warn('Slow image decode', category: 'render', data: {
+    'durationMs': 234,
+  });
+  bridge.network.record(
+    method: 'GET',
+    url: 'https://api.example.com/users/me',
+    status: 200,
+    durationMs: 124,
+    requestHeaders: {'authorization': 'Bearer ***'},
+    responseHeaders: {'content-type': 'application/json'},
+    responseBody: '{"id":42,"name":"demo"}',
   );
 
   runApp(const BenchmarkTargetApp());

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added `flutter_recent_logs` MCP tool: returns recent app-emitted log
+  lines from `TurboBridge.instance.logs`, with optional level filter.
+- Added `flutter_recent_network` MCP tool: returns recent network calls
+  the app pushed into `TurboBridge.instance.network`.
+
 ## 0.1.4
 
 - Bump reported MCP server version to `0.1.4` so compatibility metadata aligns with the released package version.

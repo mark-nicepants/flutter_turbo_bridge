@@ -223,4 +223,64 @@ class WidgetTreeService {
       children: children,
     );
   }
+
+  /// Returns the chain of widgets that contain the given screen point,
+  /// from the root down to the most-specific hit. Used by the DevTools
+  /// "inspect mode" — click on a screenshot to identify a widget.
+  ///
+  /// Each entry includes `type`, optional `key`, `rect`, optional `text`,
+  /// and optional `creationLocation` ({ file, line, column }) when widget
+  /// creation tracking is enabled (`--track-widget-creation`, default in
+  /// debug builds).
+  List<Map<String, dynamic>> pickAt(double x, double y) {
+    final binding = WidgetsBinding.instance;
+    final rootElement = binding.rootElement;
+    if (rootElement == null) return const [];
+
+    final normalizedRoot = _stripFrameworkShell(rootElement);
+    final hit = _findDeepestHitPath(normalizedRoot, Offset(x, y));
+    if (hit == null) return const [];
+
+    return hit.map(_elementSummary).toList(growable: false);
+  }
+
+  Map<String, dynamic> _elementSummary(Element element) {
+    final widget = element.widget;
+    String? keyStr;
+    final key = widget.key;
+    if (key is ValueKey) {
+      keyStr = key.value.toString();
+    } else if (key != null) {
+      keyStr = key.toString();
+    }
+
+    Map<String, double>? rect;
+    final renderObject = element.renderObject;
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      try {
+        final offset = renderObject.localToGlobal(Offset.zero);
+        final size = renderObject.size;
+        rect = {
+          'x': offset.dx,
+          'y': offset.dy,
+          'w': size.width,
+          'h': size.height,
+        };
+      } catch (_) {}
+    }
+
+    String? text;
+    if (widget is Text) {
+      text = widget.data ?? widget.textSpan?.toPlainText();
+    } else if (widget is RichText) {
+      text = widget.text.toPlainText();
+    }
+
+    return <String, dynamic>{
+      'type': widget.runtimeType.toString(),
+      if (keyStr != null) 'key': keyStr,
+      if (rect != null) 'rect': rect,
+      if (text != null) 'text': text,
+    };
+  }
 }

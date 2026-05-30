@@ -119,6 +119,19 @@ class TurboBridgeClient {
     return _bridge.appInfo();
   }
 
+  /// Fetch recent app-pushed log lines.
+  Future<List<Map<String, dynamic>>> recentLogs({
+    int limit = 100,
+    String? level,
+  }) {
+    return _bridge.recentLogs(limit: limit, level: level);
+  }
+
+  /// Fetch recent app-recorded network calls.
+  Future<List<Map<String, dynamic>>> recentNetwork({int limit = 100}) {
+    return _bridge.recentNetwork(limit: limit);
+  }
+
   /// Inject a swipe gesture from start to end coordinates.
   Future<TapResult> swipe(
     double startX,

@@ -7,6 +7,8 @@ import 'resources/widget_tree_resource.dart';
 import 'tools/app_info_tool.dart';
 import 'tools/enter_text_tool.dart';
 import 'tools/find_widget_tool.dart';
+import 'tools/recent_logs_tool.dart';
+import 'tools/recent_network_tool.dart';
 import 'tools/screenshot_tool.dart';
 import 'tools/scroll_tool.dart';
 import 'tools/swipe_tool.dart';
@@ -44,6 +46,8 @@ McpServer createMcpServer({
   registerEnterTextTool(server, client);
   registerAppInfoTool(server, client);
   registerFindWidgetTool(server, client);
+  registerRecentLogsTool(server, client);
+  registerRecentNetworkTool(server, client);
 
   // Register resources
   registerAppInfoResource(server, client);

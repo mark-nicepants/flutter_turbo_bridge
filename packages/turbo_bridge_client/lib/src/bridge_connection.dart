@@ -135,6 +135,44 @@ class BridgeConnection {
   }
 
   /// Get app metadata.
+  /// Fetch recent app-pushed log lines. `level` filters to that severity
+  /// and above (trace, debug, info, warn, error). Returns the raw JSON
+  /// entries so callers can decide how to project them.
+  Future<List<Map<String, dynamic>>> recentLogs({
+    int limit = 100,
+    String? level,
+  }) async {
+    final query = <String, String>{
+      'limit': '$limit',
+      if (level != null) 'level': level,
+    };
+    final uri = Uri.parse('$_baseUrl/logs').replace(queryParameters: query);
+    final response = await _httpClient.get(uri);
+    if (response.statusCode != 200) {
+      throw BridgeException(
+          'Recent logs failed: ${response.statusCode} ${response.body}');
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return (json['entries'] as List)
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+  }
+
+  /// Fetch recent app-recorded network calls.
+  Future<List<Map<String, dynamic>>> recentNetwork({int limit = 100}) async {
+    final uri = Uri.parse('$_baseUrl/network')
+        .replace(queryParameters: {'limit': '$limit'});
+    final response = await _httpClient.get(uri);
+    if (response.statusCode != 200) {
+      throw BridgeException(
+          'Recent network failed: ${response.statusCode} ${response.body}');
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return (json['entries'] as List)
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+  }
+
   Future<AppInfo> appInfo() async {
     final response = await _httpClient.get(Uri.parse('$_baseUrl/info'));
 

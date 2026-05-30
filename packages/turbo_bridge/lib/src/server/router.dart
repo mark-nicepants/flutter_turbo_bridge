@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shelf/shelf.dart';
 
+import '../devtools/log_sink.dart';
+import '../devtools/network_log.dart';
 import '../services/app_info_service.dart';
 import '../services/find_service.dart';
 import '../services/gesture_service.dart';
@@ -18,6 +20,8 @@ class BridgeRouter {
   final GestureService gestureService;
   final AppInfoService appInfoService;
   final FindService findService;
+  final LogSink? logs;
+  final NetworkLog? network;
   final bool includeTimingHeaders;
 
   BridgeRouter({
@@ -26,6 +30,8 @@ class BridgeRouter {
     required this.gestureService,
     required this.appInfoService,
     required this.findService,
+    this.logs,
+    this.network,
     this.includeTimingHeaders = true,
   });
 
@@ -47,6 +53,10 @@ class BridgeRouter {
         ('GET', 'find') => _handleFind(request),
         ('POST', 'find') => await _handleFindPost(request),
         ('GET', 'info') => _handleInfo(request),
+        ('GET', 'pick') => _handlePick(request),
+        ('POST', 'pick') => await _handlePickPost(request),
+        ('GET', 'logs') => _handleLogs(request),
+        ('GET', 'network') => _handleNetwork(request),
         ('GET', 'health') => _handleHealth(),
         _ => Response.notFound('Not found: $method /$path'),
       };
@@ -164,6 +174,76 @@ class BridgeRouter {
     final info = appInfoService.getInfo();
     return Response.ok(
       jsonEncode(info),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Response _handlePick(Request request) {
+    final x = double.tryParse(request.url.queryParameters['x'] ?? '');
+    final y = double.tryParse(request.url.queryParameters['y'] ?? '');
+    if (x == null || y == null) {
+      return Response(400,
+          body: jsonEncode({'error': 'x and y query params required'}),
+          headers: {'content-type': 'application/json'});
+    }
+    final chain = widgetTreeService.pickAt(x, y);
+    return Response.ok(
+      jsonEncode({'chain': chain}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Future<Response> _handlePickPost(Request request) async {
+    final body = await request.readAsString();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final x = (json['x'] as num).toDouble();
+    final y = (json['y'] as num).toDouble();
+    final chain = widgetTreeService.pickAt(x, y);
+    return Response.ok(
+      jsonEncode({'chain': chain}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Response _handleLogs(Request request) {
+    final sink = logs;
+    if (sink == null) {
+      return Response.ok(jsonEncode({'entries': const []}),
+          headers: {'content-type': 'application/json'});
+    }
+    final limit =
+        int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 100;
+    final minLevel = request.url.queryParameters['level'];
+    final order = const {'trace': 0, 'debug': 1, 'info': 2, 'warn': 3, 'error': 4};
+    final entries = sink
+        .snapshot()
+        .where((e) =>
+            minLevel == null ||
+            (order[e.level.name] ?? 0) >= (order[minLevel] ?? 0))
+        .toList();
+    final tail = entries.length > limit
+        ? entries.sublist(entries.length - limit)
+        : entries;
+    return Response.ok(
+      jsonEncode({'entries': tail.map((e) => e.toJson()).toList()}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  Response _handleNetwork(Request request) {
+    final log = network;
+    if (log == null) {
+      return Response.ok(jsonEncode({'entries': const []}),
+          headers: {'content-type': 'application/json'});
+    }
+    final limit =
+        int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 100;
+    final entries = log.snapshot();
+    final tail = entries.length > limit
+        ? entries.sublist(entries.length - limit)
+        : entries;
+    return Response.ok(
+      jsonEncode({'entries': tail.map((e) => e.toSummaryJson()).toList()}),
       headers: {'content-type': 'application/json'},
     );
   }

@@ -8,6 +8,9 @@ pubspec.lock
 # Melos
 .melos/
 
+# Test coverage
+coverage/
+
 # IDE
 .idea/
 *.iml
