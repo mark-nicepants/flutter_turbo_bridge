@@ -76,7 +76,7 @@ Example from an external Flutter app workspace:
 ```json
 {
   "servers": {
-    "flutter-turbo": {
+    "turbo_bridge": {
       "command": "turbo_bridge_mcp",
       "args": ["--bridge-port", "8888"]
     }
