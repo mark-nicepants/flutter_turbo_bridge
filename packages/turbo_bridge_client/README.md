@@ -84,12 +84,15 @@ final client = TurboBridgeClient.withVmService(
 
 ```dart
 final result = await client.screenshot(pixelRatio: 2.0);
+final settled = await client.screenshot(pixelRatio: 1.0, delayMs: 75);
 result.bytes;          // Uint8List (PNG)
 result.width;          // int
 result.height;         // int
 result.captureTimeMs;  // int (server-side capture time)
 result.roundTripMs;    // int (full HTTP round trip)
 ```
+
+Use `delayMs` when you need to let the UI settle after a tap, swipe, or route transition. The client default stays `0` so direct callers keep full control over latency.
 
 ### Widget Tree
 

@@ -40,7 +40,14 @@ class BridgeConnection {
   }
 
   /// Capture a screenshot from the app. Returns raw PNG bytes with metadata.
-  Future<ScreenshotResult> screenshot({double pixelRatio = 1.0}) async {
+  Future<ScreenshotResult> screenshot({
+    double pixelRatio = 1.0,
+    int delayMs = 0,
+  }) async {
+    if (delayMs > 0) {
+      await Future<void>.delayed(Duration(milliseconds: delayMs));
+    }
+
     final sw = Stopwatch()..start();
 
     final uri = Uri.parse('$_baseUrl/screenshot').replace(
@@ -57,8 +64,7 @@ class BridgeConnection {
 
     return ScreenshotResult(
       bytes: response.bodyBytes,
-      captureTimeMs:
-          int.tryParse(response.headers['x-capture-time-ms'] ?? '') ?? 0,
+      captureTimeMs: int.tryParse(response.headers['x-capture-time-ms'] ?? '') ?? 0,
       width: int.tryParse(response.headers['x-image-width'] ?? ''),
       height: int.tryParse(response.headers['x-image-height'] ?? ''),
       roundTripMs: sw.elapsedMilliseconds,
@@ -69,26 +75,34 @@ class BridgeConnection {
   Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})> widgetTree({
     int depth = 10,
     bool compact = true,
+    double? x,
+    double? y,
+    int ancestorLevels = 2,
   }) async {
+    if ((x == null) != (y == null)) {
+      throw ArgumentError('x and y must be provided together');
+    }
+
     final sw = Stopwatch()..start();
 
     final uri = Uri.parse('$_baseUrl/tree').replace(
       queryParameters: {
         'depth': depth.toString(),
         'compact': compact.toString(),
+        if (x != null) 'x': x.toString(),
+        if (y != null) 'y': y.toString(),
+        if (x != null && y != null) 'ancestorLevels': ancestorLevels.toString(),
       },
     );
     final response = await _httpClient.get(uri);
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Widget tree failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Widget tree failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final tree =
-        WidgetNode.fromJson(json['rootWidget'] as Map<String, dynamic>);
+    final tree = WidgetNode.fromJson(json['rootWidget'] as Map<String, dynamic>);
 
     return (
       tree: tree,
@@ -109,8 +123,7 @@ class BridgeConnection {
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Tap failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Tap failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -122,8 +135,7 @@ class BridgeConnection {
     final response = await _httpClient.get(Uri.parse('$_baseUrl/info'));
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'App info failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('App info failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -154,8 +166,7 @@ class BridgeConnection {
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Swipe failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Swipe failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -163,8 +174,7 @@ class BridgeConnection {
   }
 
   /// Inject a scroll gesture at coordinates.
-  Future<TapResult> scroll(double x, double y,
-      {double dx = 0, required double dy}) async {
+  Future<TapResult> scroll(double x, double y, {double dx = 0, required double dy}) async {
     final sw = Stopwatch()..start();
 
     final response = await _httpClient.post(
@@ -175,8 +185,7 @@ class BridgeConnection {
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Scroll failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Scroll failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -195,8 +204,7 @@ class BridgeConnection {
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Enter text failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Enter text failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -209,6 +217,11 @@ class BridgeConnection {
     String? key,
     String? type,
     int limit = 10,
+    bool visibleOnly = true,
+    bool currentRouteOnly = false,
+    bool interactiveOnly = false,
+    double? nearX,
+    double? nearY,
   }) async {
     final sw = Stopwatch()..start();
 
@@ -220,13 +233,17 @@ class BridgeConnection {
         if (key != null) 'key': key,
         if (type != null) 'type': type,
         'limit': limit,
+        'visibleOnly': visibleOnly,
+        'currentRouteOnly': currentRouteOnly,
+        'interactiveOnly': interactiveOnly,
+        if (nearX != null) 'nearX': nearX,
+        if (nearY != null) 'nearY': nearY,
       }),
     );
     sw.stop();
 
     if (response.statusCode != 200) {
-      throw BridgeException(
-          'Find failed: ${response.statusCode} ${response.body}');
+      throw BridgeException('Find failed: ${response.statusCode} ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;

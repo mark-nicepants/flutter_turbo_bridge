@@ -1,8 +1,97 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:turbo_bridge/turbo_bridge.dart';
 
 void main() {
+  group('ScreenshotService', () {
+    late ScreenshotService service;
+
+    setUp(() {
+      service = ScreenshotService();
+    });
+
+    testWidgets('captures the full render view instead of a nested repaint boundary', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: RepaintBoundary(
+                child: SizedBox(
+                  width: 120,
+                  height: 80,
+                  child: ColoredBox(
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final bytes = await service.capture();
+      expect(bytes, isNotNull);
+
+      final codec = await ui.instantiateImageCodec(bytes!);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      addTearDown(() {
+        image.dispose();
+      });
+
+      expect(image.width, greaterThan(120));
+      expect(image.height, greaterThan(80));
+      expect(service.surfaceSize, isNotNull);
+      expect(image.width.toDouble(), service.surfaceSize!.width);
+      expect(image.height.toDouble(), service.surfaceSize!.height);
+    });
+
+    testWidgets('skips offstage fullscreen repaint boundaries', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            fit: StackFit.expand,
+            children: const [
+              Offstage(
+                offstage: true,
+                child: RepaintBoundary(
+                  child: ColoredBox(color: Colors.blue),
+                ),
+              ),
+              RepaintBoundary(
+                child: ColoredBox(color: Colors.red),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final bytes = await service.capture();
+      expect(bytes, isNotNull);
+
+      final codec = await ui.instantiateImageCodec(bytes!);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      addTearDown(() {
+        image.dispose();
+      });
+
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      expect(byteData, isNotNull);
+
+      final centerX = image.width ~/ 2;
+      final centerY = image.height ~/ 2;
+      final pixelOffset = (centerY * image.width + centerX) * 4;
+      final data = byteData!.buffer.asUint8List();
+
+      expect(data[pixelOffset], greaterThan(200));
+      expect(data[pixelOffset + 1], lessThan(80));
+      expect(data[pixelOffset + 2], lessThan(80));
+    });
+  });
+
   group('WidgetTreeService', () {
     late WidgetTreeService service;
 
@@ -22,6 +111,10 @@ void main() {
       final tree = service.capture();
       expect(tree, isNotNull);
       expect(tree!.type, isNotEmpty);
+      expect(
+        {'View', 'RawView', '_RawViewInternal', '_ViewScope'},
+        isNot(contains(tree.type)),
+      );
       expect(tree.children, isNotEmpty);
     });
 
@@ -86,8 +179,7 @@ void main() {
       expect(deep, isNotNull);
 
       int countNodes(WidgetNode node) {
-        return 1 +
-            node.children.fold(0, (sum, child) => sum + countNodes(child));
+        return 1 + node.children.fold(0, (sum, child) => sum + countNodes(child));
       }
 
       // Deeper tree should have more nodes
@@ -126,6 +218,140 @@ void main() {
       expect(sizedBox.rect!['w'], 100.0);
       expect(sizedBox.rect!['h'], 50.0);
     });
+
+    testWidgets('focus coordinates return a smaller local subtree', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              const Text('Top area'),
+              Container(
+                key: const ValueKey('focus_target'),
+                padding: const EdgeInsets.all(8),
+                child: const Column(
+                  children: [
+                    Text('Target title'),
+                    Text('Target subtitle'),
+                  ],
+                ),
+              ),
+              const Text('Bottom area'),
+            ],
+          ),
+        ),
+      ));
+
+      final targetCenter = tester.getCenter(find.text('Target title'));
+      final fullTree = service.capture(depth: -1);
+      final focusedTree = service.capture(
+        depth: 2,
+        focusX: targetCenter.dx,
+        focusY: targetCenter.dy,
+        ancestorLevels: 1,
+      );
+
+      expect(fullTree, isNotNull);
+      expect(focusedTree, isNotNull);
+
+      int countNodes(WidgetNode node) {
+        return 1 + node.children.fold(0, (sum, child) => sum + countNodes(child));
+      }
+
+      expect(countNodes(focusedTree!), lessThan(countNodes(fullTree!)));
+    });
+  });
+
+  group('FindService', () {
+    late FindService service;
+
+    setUp(() {
+      service = FindService();
+    });
+
+    testWidgets('prefers visible matches over offstage duplicates by default', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: const [
+              Offstage(
+                offstage: true,
+                child: Text('Reports'),
+              ),
+              Align(
+                alignment: Alignment.topLeft,
+                child: Text('Reports'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final result = service.find(text: 'Reports');
+
+      expect(result.matches, isNotEmpty);
+      expect(result.matches.first.isVisible, isTrue);
+      expect(result.matches.first.centerX, greaterThanOrEqualTo(0));
+      expect(result.matches.first.centerY, greaterThanOrEqualTo(0));
+    });
+
+    testWidgets('returns tappable ancestor bounds for text matches', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListTile(
+              title: const Text('Tap target'),
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+
+      final textWidth = tester.getSize(find.text('Tap target')).width;
+      final result = service.find(text: 'Tap target');
+
+      expect(result.matches, isNotEmpty);
+      expect(result.matches.first.tapTargetType, isNotNull);
+      expect(result.matches.first.width, greaterThan(textWidth));
+    });
+
+    testWidgets('can bias toward the current route when duplicate visible text exists', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              return Scaffold(
+                body: Center(
+                  child: TextButton(
+                    onPressed: () {
+                      showDialog<void>(
+                        context: context,
+                        builder: (_) => const AlertDialog(
+                          content: Text('Reports'),
+                        ),
+                      );
+                    },
+                    child: const Text('Open'),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final result = service.find(
+        text: 'Reports',
+        visibleOnly: true,
+        currentRouteOnly: true,
+      );
+
+      expect(result.matches, isNotEmpty);
+      expect(result.matches.first.isCurrentRoute, isTrue);
+      expect(result.matches.first.routeName, isNotNull);
+    });
   });
 
   group('GestureService', () {
@@ -149,8 +375,7 @@ void main() {
       expect(result.executionTimeMs, lessThan(100));
     });
 
-    testWidgets('tap with tester confirms gesture system works',
-        (tester) async {
+    testWidgets('tap with tester confirms gesture system works', (tester) async {
       var tapped = false;
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(

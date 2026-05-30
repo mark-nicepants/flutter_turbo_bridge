@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/mark-nicepants/flutter_turbo_bridge
 ## What Can AI Do With This?
 
 - **See the app** — capture screenshots as PNG in <20ms
-- **Understand the UI** — inspect the full widget tree with layout bounds
+- **Understand the UI** — inspect the widget tree with layout bounds, or focus on a smaller subtree around screen coordinates
 - **Find widgets** — server-side search by text, key, or type with coordinates
 - **Interact** — tap, swipe, scroll, and enter text
 - **Query state** — get app metadata, screen size, current route, platform info
@@ -129,6 +129,16 @@ All operations are designed for <50ms round-trip latency:
 | App info | <10ms |
 
 Historical benchmark trends with p50, p95, p99, and target lines are published at https://mark-nicepants.github.io/flutter_turbo_bridge/benchmarks/.
+
+## MCP Timing Metadata
+
+Turbo MCP tool and resource responses include a `_meta` object with UTC wall-clock stamps:
+
+- `startedAtUtc` — when the MCP tool or resource began handling the request
+- `completedAtUtc` — when the MCP tool or resource finished handling the request
+- operation-specific timing fields when available, such as `captureTimeMs`, `searchTimeMs`, `executionTimeMs`, and `roundTripMs`
+
+For multi-step runs, compute total wall-clock duration from the first response's `startedAtUtc` to the last response's `completedAtUtc`. Keep the lower-level timing fields separately for per-action analysis.
 
 ## Development
 

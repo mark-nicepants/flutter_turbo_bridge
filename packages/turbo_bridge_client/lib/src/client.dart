@@ -45,22 +45,42 @@ class TurboBridgeClient {
   }
 
   /// Capture a screenshot of the app.
-  Future<ScreenshotResult> screenshot({double pixelRatio = 1.0}) {
-    return _bridge.screenshot(pixelRatio: pixelRatio);
+  Future<ScreenshotResult> screenshot({
+    double pixelRatio = 1.0,
+    int delayMs = 0,
+  }) {
+    return _bridge.screenshot(pixelRatio: pixelRatio, delayMs: delayMs);
   }
 
   /// Get the widget tree.
-  Future<WidgetNode> widgetTree({int depth = 10}) async {
-    final result = await _bridge.widgetTree(depth: depth);
+  Future<WidgetNode> widgetTree({
+    int depth = 10,
+    double? x,
+    double? y,
+    int ancestorLevels = 2,
+  }) async {
+    final result = await _bridge.widgetTree(
+      depth: depth,
+      x: x,
+      y: y,
+      ancestorLevels: ancestorLevels,
+    );
     return result.tree;
   }
 
   /// Get the widget tree with timing metadata.
-  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})>
-      widgetTreeWithTiming({
+  Future<({WidgetNode tree, int captureTimeMs, int roundTripMs})> widgetTreeWithTiming({
     int depth = 10,
+    double? x,
+    double? y,
+    int ancestorLevels = 2,
   }) {
-    return _bridge.widgetTree(depth: depth);
+    return _bridge.widgetTree(
+      depth: depth,
+      x: x,
+      y: y,
+      ancestorLevels: ancestorLevels,
+    );
   }
 
   /// Inject a tap at the given coordinates.
@@ -112,8 +132,7 @@ class TurboBridgeClient {
   /// Inject a scroll gesture at the given position.
   ///
   /// Positive [dy] scrolls content up (finger moves up); negative scrolls down.
-  Future<TapResult> scroll(double x, double y,
-      {double dx = 0, required double dy}) {
+  Future<TapResult> scroll(double x, double y, {double dx = 0, required double dy}) {
     return _bridge.scroll(x, y, dx: dx, dy: dy);
   }
 
@@ -128,9 +147,28 @@ class TurboBridgeClient {
   ///
   /// More efficient than fetching the full tree when you only need
   /// specific widget locations.
-  Future<FindResponse> find(
-      {String? text, String? key, String? type, int limit = 10}) {
-    return _bridge.find(text: text, key: key, type: type, limit: limit);
+  Future<FindResponse> find({
+    String? text,
+    String? key,
+    String? type,
+    int limit = 10,
+    bool visibleOnly = true,
+    bool currentRouteOnly = false,
+    bool interactiveOnly = false,
+    double? nearX,
+    double? nearY,
+  }) {
+    return _bridge.find(
+      text: text,
+      key: key,
+      type: type,
+      limit: limit,
+      visibleOnly: visibleOnly,
+      currentRouteOnly: currentRouteOnly,
+      interactiveOnly: interactiveOnly,
+      nearX: nearX,
+      nearY: nearY,
+    );
   }
 
   /// Evaluate a Dart expression via VM Service.
@@ -138,8 +176,7 @@ class TurboBridgeClient {
   /// Requires [connectVmService] to be called first.
   Future<String> evaluate(String expression) async {
     if (_vmService == null || !_vmService.isConnected) {
-      throw StateError(
-          'VM Service not connected. Call connectVmService() first.');
+      throw StateError('VM Service not connected. Call connectVmService() first.');
     }
     final result = await _vmService.evaluate(expression);
     return result.json?['valueAsString']?.toString() ?? result.toString();

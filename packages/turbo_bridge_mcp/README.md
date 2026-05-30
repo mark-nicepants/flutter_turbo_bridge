@@ -69,6 +69,31 @@ Add to `.vscode/mcp.json` in your project (committable to version control):
 
 > **Tip:** Uses a relative path from the workspace root. Works when this repo is cloned as a submodule or when working directly in this monorepo.
 
+### VS Code From Another App Workspace
+
+If you are working in an app repo outside this monorepo and want to point at a local checkout of `flutter_turbo_driver`, define the MCP server with a relative or absolute path to the CLI entrypoint.
+
+Example from an external Flutter app workspace:
+
+```json
+{
+  "servers": {
+    "flutter-turbo": {
+      "command": "fvm",
+      "args": [
+        "dart",
+        "run",
+        "../../../../Developer/flutter_turbo_driver/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart",
+        "--bridge-port",
+        "8888"
+      ]
+    }
+  }
+}
+```
+
+This setup is useful when the app under test and `flutter_turbo_driver` live in sibling folders on the same machine and you want the MCP server definition checked into the app workspace.
+
 ### Cursor
 
 Add to `.cursor/mcp.json` in your project (committable):
@@ -118,8 +143,9 @@ Captures the app's current screen as a PNG image.
 
 **Parameters:**
 - `pixelRatio` (number, optional) — Device pixel ratio, default 1.0
+- `delayMs` (number, optional) — Wait before capture, default 75ms
 
-**Returns:** PNG image + metadata (dimensions, capture time)
+**Returns:** PNG image plus JSON metadata. The JSON metadata includes `_meta.startedAtUtc`, `_meta.completedAtUtc`, `captureTimeMs`, and `roundTripMs`.
 
 ### `widget_tree`
 
@@ -127,8 +153,11 @@ Returns the full widget tree as structured JSON.
 
 **Parameters:**
 - `depth` (number, optional) — Max tree depth, default 10
+- `x` (number, optional) — Focus X coordinate in logical pixels
+- `y` (number, optional) — Focus Y coordinate in logical pixels
+- `ancestorLevels` (number, optional) — Ancestors to keep above the focused hit node, default 2
 
-**Returns:** Indented JSON tree with widget types, keys, text, and bounds
+**Returns:** Indented JSON tree with widget types, keys, text, and bounds. Responses include `_meta.startedAtUtc`, `_meta.completedAtUtc`, `captureTimeMs`, and `roundTripMs`. When `x` and `y` are provided together, the tool asks the bridge for a smaller local subtree around that coordinate.
 
 ### `tap`
 
@@ -138,11 +167,13 @@ Injects a tap at exact screen coordinates.
 - `x` (number, required) — X coordinate
 - `y` (number, required) — Y coordinate
 
-**Returns:** Success status and timing
+**Returns:** Success status plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `executionTimeMs`, and `roundTripMs`
 
 ### `app_info`
 
 Returns app metadata: screen size, pixel ratio, platform, dark mode, bridge version.
+
+**Returns:** App metadata plus `_meta.startedAtUtc` and `_meta.completedAtUtc`
 
 ### `find_widget`
 
@@ -153,7 +184,7 @@ Searches the widget tree by text, key, or type. Returns matching widgets with th
 - `key` (string, optional) — Find by widget key
 - `type` (string, optional) — Find by widget type name
 
-**Returns:** Up to 10 matching widgets with bounds and center coordinates
+**Returns:** Up to 10 matching widgets with bounds and center coordinates, plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `searchTimeMs`, and `roundTripMs`
 
 ### `flutter_swipe`
 
@@ -166,7 +197,7 @@ Performs a swipe gesture between two points.
 - `endY` (number, required) — End Y coordinate
 - `steps` (number, optional) — Number of move events, default 10
 
-**Returns:** Success status and timing
+**Returns:** Success status plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `executionTimeMs`, and `roundTripMs`
 
 ### `flutter_scroll`
 
@@ -178,7 +209,7 @@ Scrolls at a specific position.
 - `dy` (number, optional) — Vertical scroll delta (negative = down)
 - `dx` (number, optional) — Horizontal scroll delta
 
-**Returns:** Success status and timing
+**Returns:** Success status plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `executionTimeMs`, and `roundTripMs`
 
 ### `flutter_enter_text`
 
@@ -188,7 +219,18 @@ Enters text into the currently focused text field.
 - `text` (string, required) — Text to enter
 - `replace` (boolean, optional) — Replace existing text, default false
 
-**Returns:** Success status and timing
+**Returns:** Success status plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `executionTimeMs`, and `roundTripMs`
+
+## Timing Model
+
+Every MCP tool and resource response now includes a `_meta` object with UTC start and completion stamps. Use it like this:
+
+- action start: `_meta.startedAtUtc`
+- action end: `_meta.completedAtUtc`
+- action wall-clock duration: difference between `_meta.completedAtUtc` and `_meta.startedAtUtc`
+- operation-specific timing: keep `captureTimeMs`, `searchTimeMs`, `executionTimeMs`, and `roundTripMs` as separate fields for transport and bridge analysis
+
+For a full scenario or benchmark run, compute total wall-clock duration from the first tool call's `startedAtUtc` to the last tool call's `completedAtUtc`.
 
 ## MCP Resources
 

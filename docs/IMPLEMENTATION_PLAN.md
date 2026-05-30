@@ -141,13 +141,17 @@ flutter_turbo_bridge/
 Priority order (by impact on AI feedback loop):
 
 1. **ScreenshotService** — Capture current frame as PNG bytes
-   - Use `RenderRepaintBoundary.toImage()` for the root render object
+  - In debug mode, prefer `RenderView.debugLayer` plus `OffsetLayer.toImage()` to capture the composed root scene
+  - Fall back to `RenderRepaintBoundary.toImage()` on a visible full-surface repaint boundary when the root layer is unavailable
+  - Skip offstage subtrees in the fallback path so hidden or previous routes do not win capture selection
    - Return raw bytes (no base64 encoding over HTTP — binary response)
    - Target: <20ms including PNG encoding
 
 2. **WidgetTreeService** — Extract widget tree as compact JSON
    - Walk `WidgetsBinding.instance.rootElement`
-   - Output: `{type, key, size, position, children, text, semantics}`
+  - Normalize away framework shell wrappers above the app root
+  - Support optional coordinate-focused subtree capture with ancestor context
+  - Output: `{type, key, size, position, children, text, semantics}`
    - Configurable depth limit
    - Target: <15ms for typical app (100-500 widgets)
 
@@ -166,6 +170,13 @@ Priority order (by impact on AI feedback loop):
 5. **AppInfoService** — Static app metadata
    - Screen size, pixel ratio, platform, dark mode, route
    - Cached, near-zero cost
+
+### MCP Screenshot Settling
+
+- The raw bridge screenshot path stays immediate by default to preserve the low-latency primitive.
+- The client exposes an optional `delayMs` argument on `screenshot()` for callers that need a short settle window after gestures.
+- The MCP `flutter_screenshot` tool applies a default 75ms delay unless overridden, because AI-driven flows frequently capture immediately after taps.
+- This keeps the fast primitive available while making the default MCP experience less prone to stale post-action frames.
 
 ### Step 2: HTTP/WS Server Layer
 
@@ -191,11 +202,13 @@ Priority order (by impact on AI feedback loop):
   - `connect(host, port)` / `connectWithVmService(vmServiceUri)`
   - `screenshot()` → `Uint8List` (PNG bytes)
   - `widgetTree({depth})` → `WidgetNode` tree
+  - `widgetTreeWithTiming({depth, x, y, ancestorLevels})` → tree + timing for full or focused subtree capture
   - `tap(x, y)` → `TapResult`
   - `evaluate(expression)` → `EvalResult` (via VM Service)
   - `dispose()`
 
 - Built-in latency tracking on every operation
+- MCP tools and resources attach `_meta.startedAtUtc` and `_meta.completedAtUtc` so runs can derive wall-clock timing directly from responses
 - Auto-reconnect with exponential backoff
 
 ### Step 4: Integration & Benchmark
@@ -240,12 +253,17 @@ GET /tree
 Query params:
   - depth: int (default 10, -1 for unlimited)
   - compact: bool (default true — omit null fields)
+  - x: double (optional focus X coordinate)
+  - y: double (optional focus Y coordinate)
+  - ancestorLevels: int (default 2 — keep this many ancestors above the hit node)
 
 Response: application/json
 {
   "captureTimeMs": 12,
+  "focusPoint": {"x": 220.6, "y": 473.0},
+  "ancestorLevels": 2,
   "rootWidget": {
-    "type": "MaterialApp",
+    "type": "Column",
     "key": null,
     "rect": {"x": 0, "y": 0, "w": 390, "h": 844},
     "children": [...]
@@ -303,11 +321,11 @@ The MCP server is a standalone Dart CLI that exposes the Turbo Bridge to any MCP
 
 | Tool Name | Description | Input Schema | Output |
 |-----------|-------------|-------------|--------|
-| `flutter_screenshot` | Capture app screenshot | `{pixelRatio?: number}` | `ImageContent` (PNG base64) |
-| `flutter_widget_tree` | Get widget tree | `{depth?: integer}` | `TextContent` (JSON) |
+| `flutter_screenshot` | Capture app screenshot | `{pixelRatio?: number, delayMs?: number}` | `ImageContent` (PNG base64) + `TextContent` metadata |
+| `flutter_widget_tree` | Get widget tree | `{depth?: integer, x?: number, y?: number, ancestorLevels?: integer}` | `TextContent` (JSON) |
 | `flutter_tap` | Tap at screen coordinates | `{x: number, y: number}` | `TextContent` (result JSON) |
 | `flutter_app_info` | Get app metadata | `{}` | `TextContent` (JSON) |
-| `flutter_find_widget` | Find widget by text/key/type | `{text?: string, key?: string, type?: string}` | `TextContent` (JSON with coords) |
+| `flutter_find_widget` | Find widget by text/key/type | `{text?: string, key?: string, type?: string, visibleOnly?: boolean, currentRouteOnly?: boolean, interactiveOnly?: boolean, nearX?: number, nearY?: number, limit?: integer}` | `TextContent` (JSON with ranked coords + diagnostics) |
 
 ### MCP Resources
 
@@ -366,6 +384,7 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
 }
 ```
 **Response**: `ImageContent` with base64 PNG data and `image/png` MIME type.
+The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.completedAtUtc`, `captureTimeMs`, and `roundTripMs`.
 
 #### `flutter_widget_tree`
 ```json
@@ -379,12 +398,25 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
         "type": "integer",
         "description": "Max depth to traverse (-1 for unlimited)",
         "default": 10
+      },
+      "x": {
+        "type": "number",
+        "description": "Optional focus X coordinate in logical pixels"
+      },
+      "y": {
+        "type": "number",
+        "description": "Optional focus Y coordinate in logical pixels"
+      },
+      "ancestorLevels": {
+        "type": "integer",
+        "description": "Ancestors to keep above the focused hit node",
+        "default": 2
       }
     }
   }
 }
 ```
-**Response**: `TextContent` with JSON widget tree.
+**Response**: `TextContent` with JSON widget tree plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `captureTimeMs`, and `roundTripMs`.
 
 #### `flutter_tap`
 ```json
@@ -401,7 +433,7 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
   }
 }
 ```
-**Response**: `TextContent` with JSON `{success, executionTimeMs}`.
+**Response**: `TextContent` with JSON `{success, _meta: {startedAtUtc, completedAtUtc, executionTimeMs, roundTripMs}}`.
 
 #### `flutter_find_widget`
 ```json
@@ -413,12 +445,18 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
     "properties": {
       "text": {"type": "string", "description": "Find by text content (exact or substring)"},
       "key": {"type": "string", "description": "Find by ValueKey string"},
-      "type": {"type": "string", "description": "Find by widget type name"}
+      "type": {"type": "string", "description": "Find by widget type name"},
+      "visibleOnly": {"type": "boolean", "description": "Restrict results to the visible viewport", "default": true},
+      "currentRouteOnly": {"type": "boolean", "description": "Restrict results to the current top route when possible", "default": false},
+      "interactiveOnly": {"type": "boolean", "description": "Restrict results to widgets with an interactive tap target", "default": false},
+      "nearX": {"type": "number", "description": "Optional X coordinate to bias ranking toward"},
+      "nearY": {"type": "number", "description": "Optional Y coordinate to bias ranking toward"},
+      "limit": {"type": "integer", "description": "Maximum number of matches to return", "default": 10}
     }
   }
 }
 ```
-**Response**: `TextContent` with JSON `{found, type, key, text, center: {x, y}, bounds: {x, y, w, h}}`.
+**Response**: `TextContent` with JSON `{found, count, results, _meta: {startedAtUtc, completedAtUtc, searchTimeMs, roundTripMs}}` where each result may also include `matchedBy`, `score`, `isVisible`, `isCurrentRoute`, `routeName`, `tapTargetType`, and `tapTargetKey`.
 
 #### `flutter_app_info`
 ```json
@@ -431,4 +469,12 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
   }
 }
 ```
-**Response**: `TextContent` with JSON app metadata.
+**Response**: `TextContent` with JSON app metadata plus `_meta.startedAtUtc` and `_meta.completedAtUtc`.
+
+### Timing Calculation
+
+- Action start timestamp: `_meta.startedAtUtc`
+- Action end timestamp: `_meta.completedAtUtc`
+- Action wall-clock duration: difference between `_meta.completedAtUtc` and `_meta.startedAtUtc`
+- End-to-end scenario wall-clock duration: difference between the first tool call's `_meta.startedAtUtc` and the last tool call's `_meta.completedAtUtc`
+- Keep `captureTimeMs`, `searchTimeMs`, `executionTimeMs`, and `roundTripMs` as separate operation metrics rather than replacing them with the derived wall-clock delta

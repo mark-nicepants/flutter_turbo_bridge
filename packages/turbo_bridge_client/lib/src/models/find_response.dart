@@ -19,8 +19,7 @@ class FindResponse {
       found: json['found'] as bool,
       count: json['count'] as int,
       results: (json['results'] as List<dynamic>?)
-              ?.map(
-                  (r) => FoundWidgetResult.fromJson(r as Map<String, dynamic>))
+              ?.map((r) => FoundWidgetResult.fromJson(r as Map<String, dynamic>))
               .toList() ??
           const [],
       searchTimeMs: json['searchTimeMs'] as int? ?? 0,
@@ -36,6 +35,13 @@ class FoundWidgetResult {
   final String? text;
   final ({double x, double y})? center;
   final ({double x, double y, double w, double h})? bounds;
+  final String? matchedBy;
+  final double? score;
+  final bool? isVisible;
+  final bool? isCurrentRoute;
+  final String? routeName;
+  final String? tapTargetType;
+  final String? tapTargetKey;
 
   const FoundWidgetResult({
     required this.type,
@@ -43,6 +49,13 @@ class FoundWidgetResult {
     this.text,
     this.center,
     this.bounds,
+    this.matchedBy,
+    this.score,
+    this.isVisible,
+    this.isCurrentRoute,
+    this.routeName,
+    this.tapTargetType,
+    this.tapTargetKey,
   });
 
   factory FoundWidgetResult.fromJson(Map<String, dynamic> json) {
@@ -67,6 +80,13 @@ class FoundWidgetResult {
               h: (boundsJson['h'] as num).toDouble(),
             )
           : null,
+      matchedBy: json['matchedBy'] as String?,
+      score: (json['score'] as num?)?.toDouble(),
+      isVisible: json['isVisible'] as bool?,
+      isCurrentRoute: json['isCurrentRoute'] as bool?,
+      routeName: json['routeName'] as String?,
+      tapTargetType: json['tapTargetType'] as String?,
+      tapTargetKey: json['tapTargetKey'] as String?,
     );
   }
 }

@@ -72,8 +72,30 @@ Returns the widget tree as JSON.
 |-----------|---------|-------------|
 | `depth` | `10` | Max tree depth |
 | `compact` | `true` | Omit framework-internal widgets |
+| `x` | — | Optional focus X coordinate in logical pixels |
+| `y` | — | Optional focus Y coordinate in logical pixels |
+| `ancestorLevels` | `2` | Ancestors to keep above the focused hit node |
+
+The tree response strips the framework shell wrappers above the app and, when `x`/`y` are provided, returns a smaller local subtree around the deepest widget hit at that coordinate.
 
 **Response**: JSON with the widget tree structure including widget types, keys, text content, and layout bounds.
+
+```json
+{
+  "captureTimeMs": 12,
+  "focusPoint": {"x": 220.6, "y": 473.0},
+  "ancestorLevels": 2,
+  "rootWidget": {
+    "type": "Column",
+    "children": [
+      {
+        "type": "Text",
+        "text": "Open duties"
+      }
+    ]
+  }
+}
+```
 
 ### `POST /tap`
 
@@ -86,7 +108,7 @@ Injects a tap gesture at the given coordinates.
 
 **Response**:
 ```json
-{ "success": true, "x": 195.0, "y": 422.0, "durationMs": 3 }
+{ "success": true, "executionTimeMs": 3 }
 ```
 
 ### `GET /info`
@@ -120,7 +142,7 @@ Injects a swipe gesture between two points.
 
 **Response**:
 ```json
-{ "success": true, "durationMs": 5 }
+{ "success": true, "executionTimeMs": 5 }
 ```
 
 ### `POST /scroll`
@@ -134,7 +156,7 @@ Injects a scroll gesture at the given position.
 
 **Response**:
 ```json
-{ "success": true, "durationMs": 3 }
+{ "success": true, "executionTimeMs": 3 }
 ```
 
 ### `POST /input`
@@ -148,18 +170,24 @@ Injects text into the currently focused text field.
 
 **Response**:
 ```json
-{ "success": true, "durationMs": 1 }
+{ "success": true, "executionTimeMs": 1 }
 ```
 
 ### `GET /find` or `POST /find`
 
-Finds widgets by text, key, or type. Returns matching widgets with coordinates.
+Finds widgets by text, key, or type. Returns ranked matches biased toward the visible, tappable UI on the current screen.
 
 **Parameters** (query params or JSON body):
 - `text` — Find by text content (substring match, case-insensitive)
 - `key` — Find by ValueKey
 - `type` — Find by widget type name
 - `limit` — Max results (default 10)
+- `visibleOnly` — Restrict results to matches that intersect the visible viewport (default `true`)
+- `currentRouteOnly` — Restrict results to the current top route when possible (default `false`)
+- `interactiveOnly` — Restrict results to widgets with an interactive tap target (default `false`)
+- `nearX` / `nearY` — Optional point used to bias ranking toward a region
+
+By default the bridge prefers matches that are visible, on the active route, and inside a tappable ancestor.
 
 **Response**:
 ```json
@@ -171,7 +199,14 @@ Finds widgets by text, key, or type. Returns matching widgets with coordinates.
       "type": "Text",
       "text": "Submit",
       "center": { "x": 195.0, "y": 422.0 },
-      "bounds": { "x": 100.0, "y": 400.0, "width": 190.0, "height": 44.0 }
+      "bounds": { "x": 100.0, "y": 400.0, "w": 190.0, "h": 44.0 },
+      "matchedBy": "text-exact",
+      "score": 1523.4,
+      "isVisible": true,
+      "isCurrentRoute": true,
+      "routeName": "/client/reports",
+      "tapTargetType": "ListTile",
+      "tapTargetKey": "report_row_0"
     }
   ],
   "searchTimeMs": 2
@@ -192,7 +227,7 @@ The bridge runs an in-process HTTP server using [shelf](https://pub.dev/packages
 │  │  ├── ScreenshotService (RenderView)   │  │
 │  │  ├── WidgetTreeService (Element tree) │  │
 │  │  ├── GestureService (tap/swipe/scroll)│  │
-│  │  ├── FindService (widget lookup)      │  │
+│  │  ├── FindService (route-aware lookup) │  │
 │  │  └── AppInfoService (MediaQuery)      │  │
 │  └───────────────────────────────────────┘  │
 └─────────────────────────────────────────────┘

@@ -88,6 +88,31 @@ void main() {
         expect(result.roundTripMs, greaterThanOrEqualTo(0));
       });
 
+      test('waits before requesting screenshot when delayMs is set', () async {
+        final mockClient = http_testing.MockClient((request) async {
+          return http.Response.bytes(
+            Uint8List.fromList([137, 80, 78, 71]),
+            200,
+            headers: {
+              'content-type': 'image/png',
+              'x-capture-time-ms': '15',
+            },
+          );
+        });
+
+        connection = BridgeConnection.withClient(
+          host: '127.0.0.1',
+          port: 8888,
+          client: mockClient,
+        );
+
+        final sw = Stopwatch()..start();
+        await connection.screenshot(delayMs: 20);
+        sw.stop();
+
+        expect(sw.elapsedMilliseconds, greaterThanOrEqualTo(15));
+      });
+
       test('throws BridgeException on error response', () async {
         final mockClient = http_testing.MockClient((request) async {
           return http.Response('{"error":"No render tree"}', 503);
@@ -125,8 +150,7 @@ void main() {
         final mockClient = http_testing.MockClient((request) async {
           expect(request.url.path, '/tree');
           expect(request.url.queryParameters['depth'], '5');
-          return http.Response(responseBody, 200,
-              headers: {'content-type': 'application/json'});
+          return http.Response(responseBody, 200, headers: {'content-type': 'application/json'});
         });
 
         connection = BridgeConnection.withClient(
@@ -141,6 +165,50 @@ void main() {
         expect(result.tree.children.first.text, 'Hello');
         expect(result.captureTimeMs, 8);
         expect(result.roundTripMs, greaterThanOrEqualTo(0));
+      });
+
+      test('passes focus query parameters', () async {
+        final responseBody = jsonEncode({
+          'captureTimeMs': 5,
+          'rootWidget': {'type': 'Container'},
+        });
+
+        final mockClient = http_testing.MockClient((request) async {
+          expect(request.url.path, '/tree');
+          expect(request.url.queryParameters['x'], '120.5');
+          expect(request.url.queryParameters['y'], '240.25');
+          expect(request.url.queryParameters['ancestorLevels'], '3');
+          return http.Response(responseBody, 200, headers: {'content-type': 'application/json'});
+        });
+
+        connection = BridgeConnection.withClient(
+          host: '127.0.0.1',
+          port: 8888,
+          client: mockClient,
+        );
+
+        final result = await connection.widgetTree(
+          depth: 4,
+          x: 120.5,
+          y: 240.25,
+          ancestorLevels: 3,
+        );
+        expect(result.tree.type, 'Container');
+      });
+
+      test('rejects incomplete focus coordinates', () async {
+        connection = BridgeConnection.withClient(
+          host: '127.0.0.1',
+          port: 8888,
+          client: http_testing.MockClient((request) async {
+            throw UnimplementedError();
+          }),
+        );
+
+        expect(
+          () => connection.widgetTree(x: 120.0),
+          throwsArgumentError,
+        );
       });
     });
 
