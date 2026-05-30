@@ -1,0 +1,3 @@
+tags:
+  integration:
+    description: Tests that boot a real TurboBridge HTTP server.

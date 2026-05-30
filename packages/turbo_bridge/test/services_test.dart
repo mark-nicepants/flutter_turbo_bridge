@@ -205,6 +205,47 @@ void main() {
 
       expect(countNodes(focusedTree!), lessThan(countNodes(fullTree!)));
     });
+
+    testWidgets('pickAt returns the widget chain at a point', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              key: ValueKey('target_box'),
+              width: 200,
+              height: 100,
+              child: Text('hello pick'),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final service = WidgetTreeService();
+      final box = tester.getRect(find.byKey(const ValueKey('target_box')));
+      final chain = service.pickAt(box.center.dx, box.center.dy);
+
+      expect(chain, isNotEmpty);
+      // The deepest hit should include the target box or one of its
+      // descendants — verify the box is part of the chain.
+      final types = chain.map((n) => n['type'] as String).toList();
+      expect(types.where((t) => t == 'SizedBox' || t == 'Text'), isNotEmpty);
+      final hasKey =
+          chain.any((n) => n['key'] == 'target_box');
+      expect(hasKey, isTrue);
+    });
+
+    testWidgets('pickAt returns empty for points outside the tree',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(body: SizedBox(width: 10, height: 10)),
+      ));
+      await tester.pumpAndSettle();
+
+      final service = WidgetTreeService();
+      final chain = service.pickAt(99999, 99999);
+      expect(chain, isEmpty);
+    });
   });
 
   group('FindService', () {

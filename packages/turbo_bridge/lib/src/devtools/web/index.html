@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Turbo Bridge DevTools</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">turbo_bridge · DevTools</div>
+    <div class="status" id="status">
+      <span class="dot" id="health-dot"></span>
+      <span id="health-text">connecting…</span>
+    </div>
+  </header>
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="screenshot">Screenshot</button>
+    <button class="tab" data-tab="tree">Widget tree</button>
+    <button class="tab" data-tab="find">Find</button>
+    <button class="tab" data-tab="logs">App logs</button>
+    <button class="tab" data-tab="network">Network</button>
+    <button class="tab" data-tab="log">Bridge log</button>
+  </nav>
+  <main>
+    <section id="panel-overview" class="panel active">
+      <h2>App info</h2>
+      <pre id="info-json">loading…</pre>
+      <button id="info-refresh">Refresh</button>
+    </section>
+
+    <section id="panel-screenshot" class="panel">
+      <div class="row">
+        <button id="shot-capture">Capture</button>
+        <label>
+          Auto-refresh:
+          <select id="shot-interval">
+            <option value="0">off</option>
+            <option value="1000">1 fps</option>
+            <option value="500">2 fps</option>
+            <option value="2000">0.5 fps</option>
+          </select>
+        </label>
+        <label>
+          Pixel ratio:
+          <input id="shot-pixel-ratio" type="number" min="0.5" max="3" step="0.5" value="1" />
+        </label>
+        <label>
+          <input id="shot-mode" type="checkbox" /> Inspect mode
+        </label>
+        <span class="hint">Tap mode: click to send a tap. Inspect mode: click to identify the widget.</span>
+      </div>
+      <div class="screenshot-wrap">
+        <div class="screenshot-stage">
+          <img id="shot-image" alt="screenshot will appear here" />
+          <div id="shot-overlay" class="shot-overlay"></div>
+        </div>
+        <div class="screenshot-side">
+          <div id="shot-meta" class="meta"></div>
+          <div id="inspector-panel" class="inspector-panel" hidden>
+            <h3>Picked widget chain</h3>
+            <div id="inspector-content"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-tree" class="panel">
+      <div class="row">
+        <button id="tree-capture">Capture</button>
+        <label>
+          Depth:
+          <input id="tree-depth" type="number" min="1" max="40" value="10" />
+        </label>
+        <label>
+          Filter:
+          <input id="tree-filter" type="text" placeholder="widget type or text" />
+        </label>
+        <label>
+          <input id="tree-compact" type="checkbox" checked /> Compact
+        </label>
+      </div>
+      <div id="tree-view" class="tree-view">No capture yet.</div>
+    </section>
+
+    <section id="panel-find" class="panel">
+      <div class="row">
+        <label>Text: <input id="find-text" type="text" placeholder="button label" /></label>
+        <label>Type: <input id="find-type" type="text" placeholder="ElevatedButton" /></label>
+        <label>Key: <input id="find-key" type="text" placeholder="counter_button" /></label>
+        <label>Limit: <input id="find-limit" type="number" min="1" max="100" value="10" /></label>
+        <label><input id="find-visible" type="checkbox" checked /> Visible only</label>
+        <label><input id="find-interactive" type="checkbox" /> Interactive only</label>
+        <button id="find-go">Find</button>
+      </div>
+      <div id="find-results" class="find-results">No search yet.</div>
+    </section>
+
+    <section id="panel-logs" class="panel">
+      <div class="row">
+        <button id="logs-clear">Clear</button>
+        <label>Filter: <input id="logs-filter" type="text" placeholder="auth" /></label>
+        <label>Level:
+          <select id="logs-level">
+            <option value="">all</option>
+            <option value="trace">trace+</option>
+            <option value="debug">debug+</option>
+            <option value="info" selected>info+</option>
+            <option value="warn">warn+</option>
+            <option value="error">error</option>
+          </select>
+        </label>
+        <span class="hint">App-emitted logs (live via SSE). Push from app code: <code>TurboBridge.instance.logs.info(...)</code></span>
+      </div>
+      <div id="logs-empty" class="empty-state">No logs yet. Wire up <code>TurboBridge.instance.logs</code> in your app.</div>
+      <table class="log-table" id="logs-table" hidden>
+        <thead>
+          <tr><th>Time</th><th>Level</th><th>Category</th><th>Message</th></tr>
+        </thead>
+        <tbody id="logs-body"></tbody>
+      </table>
+    </section>
+
+    <section id="panel-network" class="panel">
+      <div class="row">
+        <button id="net-clear">Clear</button>
+        <label>Filter: <input id="net-filter" type="text" placeholder="api.example.com" /></label>
+        <span class="hint">App-recorded network calls. Push from a Dio/http interceptor: <code>TurboBridge.instance.network.record(...)</code></span>
+      </div>
+      <div id="net-empty" class="empty-state">No network calls yet. Wire up <code>TurboBridge.instance.network</code> in your HTTP client.</div>
+      <table class="log-table" id="net-table" hidden>
+        <thead>
+          <tr><th>Time</th><th>Method</th><th>URL</th><th>Status</th><th>Duration</th><th>Size</th></tr>
+        </thead>
+        <tbody id="net-body"></tbody>
+      </table>
+      <div id="net-detail" class="detail-panel" hidden></div>
+    </section>
+
+    <section id="panel-log" class="panel">
+      <div class="row">
+        <button id="log-clear">Clear</button>
+        <label>Filter: <input id="log-filter" type="text" placeholder="GET /tree" /></label>
+        <span class="hint">Live tail via Server-Sent Events.</span>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>Duration</th><th>Remote</th></tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+      <div id="log-detail" class="detail-panel" hidden></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

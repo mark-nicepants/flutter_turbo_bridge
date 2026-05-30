@@ -15,6 +15,8 @@ library;
 
 export 'src/bridge.dart';
 export 'src/bridge_config.dart';
+export 'src/devtools/log_sink.dart' show LogSink, LogEntry, LogLevel;
+export 'src/devtools/network_log.dart' show NetworkLog, NetworkCall;
 export 'src/services/app_info_service.dart';
 export 'src/services/find_service.dart';
 export 'src/services/gesture_service.dart';
