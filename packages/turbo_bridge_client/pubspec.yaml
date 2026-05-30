@@ -16,7 +16,7 @@ environment:
   sdk: ^3.4.0
 
 dependencies:
-  vm_service: ^14.0.0
+  vm_service: ^15.2.0
   web_socket_channel: ^3.0.0
   http: ^1.2.0
   meta: ^1.11.0

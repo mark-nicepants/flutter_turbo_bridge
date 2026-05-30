@@ -13,7 +13,7 @@
 /// await client.tap(195, 422);
 /// await client.dispose();
 /// ```
-library turbo_bridge_client;
+library;
 
 export 'src/bridge_connection.dart';
 export 'src/client.dart';

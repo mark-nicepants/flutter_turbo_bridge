@@ -8,10 +8,10 @@
 ///
 /// void main() {
 ///   runApp(const MyApp());
-///   TurboBridge.instance.start();
+///   TurboBridge.start();
 /// }
 /// ```
-library turbo_bridge;
+library;
 
 export 'src/bridge.dart';
 export 'src/bridge_config.dart';
