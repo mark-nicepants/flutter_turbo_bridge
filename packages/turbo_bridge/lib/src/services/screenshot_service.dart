@@ -15,6 +15,8 @@ class ScreenshotService {
     '_ViewScope',
   };
 
+  static const String _testBindingType = 'AutomatedTestWidgetsFlutterBinding';
+
   /// Capture a screenshot of the app's current frame.
   ///
   /// Returns PNG-encoded bytes. The [pixelRatio] controls resolution
@@ -27,8 +29,9 @@ class ScreenshotService {
     if (surfaceSize == null) return null;
 
     final renderView = _findRenderView(binding);
-    if (renderView != null) {
+    if (renderView != null && !_isWidgetTestBinding(binding)) {
       if (renderView.debugNeedsPaint) {
+        binding.scheduleFrame();
         await binding.endOfFrame;
       }
 
@@ -53,6 +56,7 @@ class ScreenshotService {
     if (renderBoundary == null) return null;
 
     if (renderBoundary.debugNeedsPaint) {
+      binding.scheduleFrame();
       await binding.endOfFrame;
       renderBoundary = _findCaptureBoundary(
             binding,
@@ -164,5 +168,9 @@ class ScreenshotService {
       }
     });
     return childCount == 1 ? onlyChild : null;
+  }
+
+  bool _isWidgetTestBinding(WidgetsBinding binding) {
+    return binding.runtimeType.toString() == _testBindingType;
   }
 }
