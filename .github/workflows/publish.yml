@@ -48,4 +48,4 @@ jobs:
 
       - name: Publish to pub.dev
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run == 'false') }}
-        run: melos publish --yes
+        run: melos publish --no-dry-run --yes
