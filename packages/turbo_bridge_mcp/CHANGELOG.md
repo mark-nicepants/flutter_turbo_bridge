@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- Rename the recommended MCP server key from `flutter` to `turbo_bridge` across host configuration examples.
+- Refresh MCP package dependencies, including `mcp_dart` 2.2 and the matching `turbo_bridge_client` release.
+- Raise the minimum Dart SDK to 3.5 for the Melos 7 workspace migration.
+
 ## 0.1.2
 
 - Share package checks with CI before tagged pub.dev publishes.

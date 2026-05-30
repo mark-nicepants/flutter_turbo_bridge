@@ -33,7 +33,7 @@ class AppInfoService {
       'darkMode':
           binding.platformDispatcher.platformBrightness == ui.Brightness.dark,
       'currentRoute': currentRoute,
-      'bridgeVersion': '0.1.2',
+      'bridgeVersion': '0.1.3',
       'locale': binding.platformDispatcher.locale.toString(),
     };
   }

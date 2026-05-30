@@ -1,10 +1,11 @@
 name: flutter_turbo_bridge_benchmark
 description: Speed benchmark for Flutter AI interaction approaches
 version: 0.1.0
+resolution: workspace
 publish_to: none
 
 environment:
-  sdk: ^3.4.0
+  sdk: ^3.5.0
 
 dependencies:
   vm_service: ^15.2.0

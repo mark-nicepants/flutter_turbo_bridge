@@ -308,7 +308,7 @@ Response: application/json
   "platform": "android",
   "darkMode": false,
   "currentRoute": "/home",
-  "bridgeVersion": "0.1.2"
+  "bridgeVersion": "0.1.3"
 }
 ```
 

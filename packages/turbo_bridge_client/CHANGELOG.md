@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- Refresh client dependencies, including `vm_service` 15.x.
+- Align the public library entrypoint with the current package docs cleanup.
+- Raise the minimum Dart SDK to 3.5 for the shared workspace toolchain.
+
 ## 0.1.2
 
 - Align package metadata and docs for the automated pub.dev release flow.

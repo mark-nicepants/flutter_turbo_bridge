@@ -2,8 +2,46 @@ name: flutter_turbo_bridge_workspace
 publish_to: none
 
 environment:
-  sdk: ^3.4.0
+  sdk: ^3.5.0
+
+workspace:
+  - packages/turbo_bridge
+  - packages/turbo_bridge_client
+  - packages/turbo_bridge_mcp
+  - apps/target_app
+  - apps/benchmark
 
 dev_dependencies:
   lints: ^6.1.0
   melos: ^7.8.0
+
+melos:
+  scripts:
+    analyze:
+      run: dart analyze --fatal-infos
+      exec:
+        concurrency: 1
+      packageFilters:
+        dirExists: lib
+    test:dart:
+      description: Run tests for pure Dart packages
+      run: dart test
+      exec:
+        concurrency: 1
+      packageFilters:
+        dirExists: test
+        scope:
+          - turbo_bridge_client
+          - turbo_bridge_mcp
+          - flutter_turbo_bridge_benchmark
+    test:flutter:
+      description: Run tests for Flutter packages
+      run: flutter test
+      exec:
+        concurrency: 1
+      packageFilters:
+        dirExists: test
+        scope:
+          - turbo_bridge
+    format:
+      run: dart format --line-length 80 --set-exit-if-changed .

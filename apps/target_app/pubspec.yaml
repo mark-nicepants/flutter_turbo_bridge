@@ -1,9 +1,10 @@
 name: benchmark_target_app
 description: Minimal Flutter app used as benchmark target for Turbo Bridge
+resolution: workspace
 publish_to: none
 
 environment:
-  sdk: ^3.4.0
+  sdk: ^3.5.0
 
 dependencies:
   flutter:

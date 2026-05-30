@@ -12,7 +12,7 @@ runs:
 
     - name: Install Melos
       shell: bash
-      run: dart pub global activate melos
+      run: dart pub global activate melos 7.8.0
 
     - name: Bootstrap
       shell: bash
@@ -20,16 +20,16 @@ runs:
 
     - name: Analyze
       shell: bash
-      run: melos run analyze
+      run: melos run analyze --no-select
 
     - name: Format check
       shell: bash
-      run: melos run format
+      run: melos run format --no-select
 
     - name: Test pure Dart packages
       shell: bash
-      run: melos run test:dart
+      run: melos run test:dart --no-select
 
     - name: Test Flutter package
       shell: bash
-      run: melos run test:flutter
+      run: melos run test:flutter --no-select
