@@ -358,7 +358,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.4',
+            bridgeVersion: '0.1.5',
           ));
 
       final result = await mcpClient.callTool(
