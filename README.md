@@ -4,7 +4,7 @@ Ultra-fast bridge between AI agents and Flutter apps. Enables LLMs to see, under
 
 **One-line install:**
 
-```bash
+flutter pub add turbo_bridge
 curl -fsSL https://raw.githubusercontent.com/mark-nicepants/flutter_turbo_bridge/main/install.sh | bash
 ```
 
@@ -60,14 +60,19 @@ void main() {
 
 ### 2. Connect your AI agent
 
+Install the MCP server once on your machine:
+
+```bash
+dart pub global activate turbo_bridge_mcp
+```
+
 Add to `.vscode/mcp.json` (committable to version control):
 
 ```json
 {
   "servers": {
     "flutter": {
-      "command": "dart",
-      "args": ["run", "packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"]
+      "command": "turbo_bridge_mcp"
     }
   }
 }
@@ -79,14 +84,13 @@ Or for Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_conf
 {
   "mcpServers": {
     "flutter": {
-      "command": "dart",
-      "args": ["run", "/path/to/flutter_turbo_bridge/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"]
+      "command": "turbo_bridge_mcp"
     }
   }
 }
 ```
 
-> **Tip:** The MCP server auto-connects to `localhost:8888`. Pass `--bridge-port` if you changed the default.
+> **Tip:** The MCP server auto-connects to `localhost:8888`. Pass `--bridge-port` if you changed the default. If your MCP host does not inherit the Dart pub cache bin path, replace `turbo_bridge_mcp` with the absolute executable path reported by `dart pub global activate`.
 
 ### 3. Talk to your app
 
@@ -165,7 +169,9 @@ melos run format
 ## CI/CD
 
 - **CI** runs on every push/PR: analyze, format check, test all packages, benchmark on macOS
-- **Publish** triggered on `v*` tags: publishes all packages to pub.dev
+- **Publish** triggered on `v*` tags: publishes all packages to pub.dev via pub.dev trusted publishing (GitHub OIDC)
+- **First release** of each package must still be published manually on pub.dev before GitHub Actions can publish later versions
+- **Secrets** are not required for the GitHub Actions flow once automated publishing is enabled on each package's pub.dev admin page
 
 ## License
 

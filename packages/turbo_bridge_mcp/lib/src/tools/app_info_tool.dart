@@ -2,6 +2,7 @@ import 'package:mcp_dart/mcp_dart.dart';
 import 'package:turbo_bridge_client/turbo_bridge_client.dart';
 
 import '../response_metadata.dart';
+import '../version_info.dart';
 
 /// Registers the `flutter_app_info` tool.
 void registerAppInfoTool(McpServer server, TurboBridgeClient client) {
@@ -26,6 +27,7 @@ void registerAppInfoTool(McpServer server, TurboBridgeClient client) {
                   'platform': info.platform,
                   'darkMode': info.darkMode,
                   'bridgeVersion': info.bridgeVersion,
+                  ...buildMcpCompatibilityInfo(bridgeVersion: info.bridgeVersion),
                   if (info.currentRoute != null) 'currentRoute': info.currentRoute,
                   if (info.locale != null) 'locale': info.locale,
                 },

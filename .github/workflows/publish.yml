@@ -1,5 +1,13 @@
 # Publish packages to pub.dev
 #
+# pub.dev only allows GitHub Actions automation for packages that already exist.
+# Publish the first version of each package manually, then enable automated
+# publishing on each package's pub.dev Admin tab for:
+#   repository: mark-nicepants/flutter_turbo_bridge
+#   tag pattern: v{{version}}
+# No long-lived repository secret is required when using pub.dev trusted
+# publishing from GitHub Actions.
+#
 # Triggered manually or on version tag push.
 # Packages are published in dependency order:
 #   1. turbo_bridge_client (no internal deps)

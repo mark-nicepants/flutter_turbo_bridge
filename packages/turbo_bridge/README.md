@@ -10,16 +10,13 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  turbo_bridge:
-    git:
-      url: https://github.com/mark-nicepants/flutter_turbo_bridge.git
-      path: packages/turbo_bridge
+  turbo_bridge: ^0.1.0
 ```
 
 Or use the CLI:
 
 ```bash
-flutter pub add turbo_bridge --git-url=https://github.com/mark-nicepants/flutter_turbo_bridge.git --git-path=packages/turbo_bridge
+flutter pub add turbo_bridge
 ```
 
 ## Usage

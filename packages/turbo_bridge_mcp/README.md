@@ -3,9 +3,14 @@
 MCP (Model Context Protocol) server that gives LLMs direct access to running Flutter apps. Connect Claude, Cursor, VS Code Copilot, or any MCP-compatible host to see, understand, and interact with Flutter UIs.
 
 ## What It Does
+# Global install for MCP hosts
+dart pub global activate turbo_bridge_mcp
+```
 
-This package wraps the Turbo Bridge client as an MCP server, exposing Flutter app interaction as **tools**, **resources**, and **prompts** that LLMs can use autonomously.
+Or install it per project:
 
+```bash
+dart pub add --dev turbo_bridge_mcp
 An LLM connected via this server can:
 - Take screenshots and see the app's current state
 - Inspect the widget tree to understand UI structure
@@ -37,17 +42,13 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "flutter": {
-      "command": "dart",
-      "args": [
-        "run",
-        "/absolute/path/to/flutter_turbo_bridge/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
-      ]
+      "command": "turbo_bridge_mcp"
     }
   }
 }
 ```
 
-> **Note:** Claude Desktop requires absolute paths. Use the path from `install.sh` output or your clone location.
+> **Note:** If Claude Desktop does not inherit your Dart pub cache bin path, replace `turbo_bridge_mcp` with the absolute executable path reported by `dart pub global activate turbo_bridge_mcp`.
 
 ### VS Code (GitHub Copilot)
 
@@ -58,16 +59,13 @@ Add to `.vscode/mcp.json` in your project (committable to version control):
   "servers": {
     "flutter": {
       "command": "dart",
-      "args": [
-        "run",
-        "packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
-      ]
+      "args": ["run", "turbo_bridge_mcp"]
     }
   }
 }
 ```
 
-> **Tip:** Uses a relative path from the workspace root. Works when this repo is cloned as a submodule or when working directly in this monorepo.
+> **Tip:** Prefer `dart run turbo_bridge_mcp` for project-local installs and `turbo_bridge_mcp` for globally activated installs.
 
 ### VS Code From Another App Workspace
 
@@ -79,14 +77,8 @@ Example from an external Flutter app workspace:
 {
   "servers": {
     "flutter-turbo": {
-      "command": "fvm",
-      "args": [
-        "dart",
-        "run",
-        "../../../../Developer/flutter_turbo_driver/packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart",
-        "--bridge-port",
-        "8888"
-      ]
+      "command": "turbo_bridge_mcp",
+      "args": ["--bridge-port", "8888"]
     }
   }
 }
@@ -103,10 +95,7 @@ Add to `.cursor/mcp.json` in your project (committable):
   "mcpServers": {
     "flutter": {
       "command": "dart",
-      "args": [
-        "run",
-        "packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"
-      ]
+      "args": ["run", "turbo_bridge_mcp"]
     }
   }
 }
@@ -171,9 +160,9 @@ Injects a tap at exact screen coordinates.
 
 ### `app_info`
 
-Returns app metadata: screen size, pixel ratio, platform, dark mode, bridge version.
+Returns app metadata: screen size, pixel ratio, platform, dark mode, bridge version, and MCP compatibility hints.
 
-**Returns:** App metadata plus `_meta.startedAtUtc` and `_meta.completedAtUtc`
+**Returns:** App metadata plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `mcpServerVersion`, `mcpVersionStatus`, and an `updateHint` when the bridge is newer than the MCP server
 
 ### `find_widget`
 

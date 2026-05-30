@@ -178,6 +178,13 @@ Priority order (by impact on AI feedback loop):
 - The MCP `flutter_screenshot` tool applies a default 75ms delay unless overridden, because AI-driven flows frequently capture immediately after taps.
 - This keeps the fast primitive available while making the default MCP experience less prone to stale post-action frames.
 
+### Package Distribution
+
+- Public packages are shaped for pub.dev publication.
+- The first release of each package must be published manually; subsequent releases can use GitHub Actions automated publishing.
+- The publish workflow relies on GitHub OIDC with `id-token: write`, not long-lived repository secrets.
+- `flutter_app_info` and `flutter://app/info` enrich bridge metadata with MCP-local compatibility fields: `mcpServerVersion`, `mcpVersionStatus`, and `updateHint`.
+
 ### Step 2: HTTP/WS Server Layer
 
 - **Shelf-based HTTP server** on configurable port (default 8888)
@@ -470,6 +477,7 @@ The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.complete
 }
 ```
 **Response**: `TextContent` with JSON app metadata plus `_meta.startedAtUtc` and `_meta.completedAtUtc`.
+The MCP response also includes `mcpServerVersion`, `mcpVersionStatus`, and an `updateHint` when the running MCP package is older than the bridge package in the app.
 
 ### Timing Calculation
 

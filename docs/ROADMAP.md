@@ -38,6 +38,7 @@ Enable AI/LLM agents to interact with Flutter apps at near-human speed (<100ms p
 - [x] Full AI feedback loop: <100ms — **16ms achieved**
 - [ ] Zero crashes over 1000 consecutive operations
 - [x] Unit test coverage >80% — 45 tests passing
+- [x] Public packages pass local pub.dev dry-run validation
 
 5. **`turbo_bridge_mcp` package** — MCP server for LLM integration
    - Model Context Protocol server (stdio transport)
@@ -45,6 +46,7 @@ Enable AI/LLM agents to interact with Flutter apps at near-human speed (<100ms p
    - Provides app state as MCP resources
    - Pre-built prompts for common AI workflows
    - Compatible with Claude Desktop, VS Code, Cursor, etc.
+   - Adds MCP/bridge version compatibility hints on `flutter_app_info`
 
 ---
 

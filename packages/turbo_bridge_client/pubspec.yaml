@@ -1,7 +1,16 @@
 name: turbo_bridge_client
 description: Client library for connecting to Flutter Turbo Bridge and VM Service. Provides a unified high-speed interface for AI agents.
 version: 0.1.0
-publish_to: none
+homepage: https://github.com/mark-nicepants/flutter_turbo_bridge/tree/main/packages/turbo_bridge_client
+repository: https://github.com/mark-nicepants/flutter_turbo_bridge
+issue_tracker: https://github.com/mark-nicepants/flutter_turbo_bridge/issues
+documentation: https://github.com/mark-nicepants/flutter_turbo_bridge/tree/main/packages/turbo_bridge_client
+topics:
+  - dart
+  - flutter
+  - automation
+  - testing
+  - vm-service
 
 environment:
   sdk: ^3.4.0

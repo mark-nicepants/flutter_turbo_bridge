@@ -332,7 +332,28 @@ void main() {
       expect(json['platform'], 'macos');
       expect(json['currentRoute'], '/');
       expect(json['locale'], 'en_US');
+      expect(json['mcpServerVersion'], '0.1.0');
+      expect(json['mcpVersionStatus'], 'up-to-date');
       expect(json['_meta']['startedAtUtc'], isA<String>());
+    });
+
+    test('returns an update hint when the bridge is newer than the MCP server', () async {
+      when(() => mockClient.appInfo()).thenAnswer((_) async => AppInfo(
+            screenWidth: 393.0,
+            screenHeight: 852.0,
+            pixelRatio: 3.0,
+            platform: 'macos',
+            darkMode: false,
+            bridgeVersion: '0.2.0',
+          ));
+
+      final result = await mcpClient.callTool(
+        CallToolRequest(name: 'flutter_app_info', arguments: {}),
+      );
+
+      final json = jsonDecode((result.content[0] as TextContent).text) as Map<String, dynamic>;
+      expect(json['mcpVersionStatus'], 'update-recommended');
+      expect(json['updateHint'], contains('Update turbo_bridge_mcp'));
     });
   });
 
@@ -471,8 +492,9 @@ void main() {
       );
 
       final text = (result.contents[0] as TextResourceContents).text;
-      final json = jsonDecode(text);
+      final json = jsonDecode(text) as Map<String, dynamic>;
       expect(json['platform'], 'macos');
+      expect(json['mcpServerVersion'], '0.1.0');
       expect(json['_meta']['startedAtUtc'], isA<String>());
     });
 

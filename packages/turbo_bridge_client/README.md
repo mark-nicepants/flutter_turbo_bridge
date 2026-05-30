@@ -2,10 +2,7 @@
 
 Pure Dart client library for connecting to a running Flutter app via Turbo Bridge. Designed for tool builders, CI pipelines, and anyone who needs programmatic access to a Flutter app's UI.
 
-## Installation
-
-```yaml
-dependencies:
+  turbo_bridge_client: ^0.1.0
   turbo_bridge_client:
     git:
       url: https://github.com/mark-nicepants/flutter_turbo_bridge.git
@@ -15,7 +12,7 @@ dependencies:
 Or use the CLI:
 
 ```bash
-dart pub add turbo_bridge_client --git-url=https://github.com/mark-nicepants/flutter_turbo_bridge.git --git-path=packages/turbo_bridge_client
+dart pub add turbo_bridge_client
 ```
 
 ## Quick Start

@@ -1,7 +1,16 @@
 name: turbo_bridge_mcp
 description: MCP server for Flutter Turbo Bridge — exposes Flutter app interaction tools to LLM hosts via the Model Context Protocol.
 version: 0.1.0
-publish_to: none
+homepage: https://github.com/mark-nicepants/flutter_turbo_bridge/tree/main/packages/turbo_bridge_mcp
+repository: https://github.com/mark-nicepants/flutter_turbo_bridge
+issue_tracker: https://github.com/mark-nicepants/flutter_turbo_bridge/issues
+documentation: https://github.com/mark-nicepants/flutter_turbo_bridge/tree/main/packages/turbo_bridge_mcp
+topics:
+  - mcp
+  - flutter
+  - automation
+  - ai
+  - llm
 
 environment:
   sdk: ^3.4.0
@@ -9,8 +18,7 @@ environment:
 dependencies:
   args: ^2.4.0
   mcp_dart: ^2.1.1
-  turbo_bridge_client:
-    path: ../turbo_bridge_client
+  turbo_bridge_client: ^0.1.0
 
 dev_dependencies:
   test: ^1.24.0
