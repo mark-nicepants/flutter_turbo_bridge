@@ -64,7 +64,7 @@ void main() {
                 'pixelRatio': 3.0,
                 'platform': 'macos',
                 'darkMode': false,
-                'bridgeVersion': '0.1.0',
+                'bridgeVersion': '0.1.1',
                 'locale': 'en_US',
               }),
               200,

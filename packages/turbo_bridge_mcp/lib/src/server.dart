@@ -12,6 +12,7 @@ import 'tools/scroll_tool.dart';
 import 'tools/swipe_tool.dart';
 import 'tools/tap_tool.dart';
 import 'tools/widget_tree_tool.dart';
+import 'version_info.dart';
 
 /// Creates and configures the Turbo Bridge MCP server.
 ///
@@ -23,7 +24,7 @@ McpServer createMcpServer({
   final server = McpServer(
     Implementation(
       name: 'flutter-turbo-bridge',
-      version: '0.2.0',
+      version: turboBridgeMcpVersion,
     ),
     options: McpServerOptions(
       capabilities: ServerCapabilities(

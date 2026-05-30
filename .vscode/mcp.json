@@ -1,8 +1,7 @@
 {
   "servers": {
     "flutter": {
-      "command": "dart",
-      "args": ["run", "packages/turbo_bridge_mcp/bin/turbo_bridge_mcp.dart"]
+      "command": "turbo_bridge_mcp"
     }
   }
 }

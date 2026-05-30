@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Align package and MCP server version reporting.
+- Update hosted-install guidance for pub.dev and global MCP activation.
+
 ## 0.1.0
 
 - Initial public release of the Turbo Bridge MCP server.

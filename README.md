@@ -2,13 +2,20 @@
 
 Ultra-fast bridge between AI agents and Flutter apps. Enables LLMs to see, understand, and interact with running Flutter applications in real-time.
 
-**One-line install:**
+**Install from pub.dev:**
 
+```bash
 flutter pub add turbo_bridge
+dart pub global activate turbo_bridge_mcp
+```
+
+Or use the helper script:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/mark-nicepants/flutter_turbo_bridge/main/install.sh | bash
 ```
 
-```
+```text
 ┌──────────────┐     stdio      ┌──────────────────┐    HTTP     ┌────────────────┐
 │   LLM Host   │◄──────────────►│ turbo_bridge_mcp │◄───────────►│  Flutter App   │
 │  (Claude,    │                │  (MCP server)    │   :8888     │  + turbo_bridge│
@@ -44,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/mark-nicepants/flutter_turbo_bridge
 
 ```bash
 # From your Flutter project root:
-flutter pub add turbo_bridge --git-url=https://github.com/mark-nicepants/flutter_turbo_bridge.git --git-path=packages/turbo_bridge
+flutter pub add turbo_bridge
 ```
 
 Then start the bridge in your `main.dart`:

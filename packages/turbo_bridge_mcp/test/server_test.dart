@@ -317,7 +317,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.0',
+            bridgeVersion: '0.1.1',
             currentRoute: '/',
             locale: 'en_US',
           ));
@@ -332,7 +332,7 @@ void main() {
       expect(json['platform'], 'macos');
       expect(json['currentRoute'], '/');
       expect(json['locale'], 'en_US');
-      expect(json['mcpServerVersion'], '0.1.0');
+      expect(json['mcpServerVersion'], '0.1.1');
       expect(json['mcpVersionStatus'], 'up-to-date');
       expect(json['_meta']['startedAtUtc'], isA<String>());
     });
@@ -344,7 +344,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.2.0',
+            bridgeVersion: '0.1.2',
           ));
 
       final result = await mcpClient.callTool(
@@ -484,7 +484,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.0',
+            bridgeVersion: '0.1.1',
           ));
 
       final result = await mcpClient.readResource(
@@ -494,7 +494,7 @@ void main() {
       final text = (result.contents[0] as TextResourceContents).text;
       final json = jsonDecode(text) as Map<String, dynamic>;
       expect(json['platform'], 'macos');
-      expect(json['mcpServerVersion'], '0.1.0');
+      expect(json['mcpServerVersion'], '0.1.1');
       expect(json['_meta']['startedAtUtc'], isA<String>());
     });
 

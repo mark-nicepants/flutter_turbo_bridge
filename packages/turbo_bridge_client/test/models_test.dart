@@ -53,7 +53,7 @@ void main() {
         'platform': 'macos',
         'darkMode': true,
         'currentRoute': null,
-        'bridgeVersion': '0.1.0',
+        'bridgeVersion': '0.1.1',
         'locale': 'nl_NL',
       });
 
@@ -63,7 +63,7 @@ void main() {
       expect(info.platform, 'macos');
       expect(info.darkMode, isTrue);
       expect(info.currentRoute, isNull);
-      expect(info.bridgeVersion, '0.1.0');
+      expect(info.bridgeVersion, '0.1.1');
       expect(info.locale, 'nl_NL');
     });
 
@@ -74,7 +74,7 @@ void main() {
         pixelRatio: 3.0,
         platform: 'ios',
         darkMode: false,
-        bridgeVersion: '0.1.0',
+        bridgeVersion: '0.1.1',
       );
       expect(info.toString(), contains('390'));
       expect(info.toString(), contains('844'));
