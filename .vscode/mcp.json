@@ -1,6 +1,6 @@
 {
   "servers": {
-    "flutter": {
+    "turbo_bridge": {
       "command": "turbo_bridge_mcp"
     }
   }

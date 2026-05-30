@@ -9,6 +9,8 @@ flutter pub add turbo_bridge
 dart pub global activate turbo_bridge_mcp
 ```
 
+If your app uses FVM, use `fvm flutter pub add turbo_bridge`.
+
 Or use the helper script:
 
 ```bash
@@ -57,13 +59,21 @@ flutter pub add turbo_bridge
 Then start the bridge in your `main.dart`:
 
 ```dart
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:turbo_bridge/turbo_bridge.dart';
 
 void main() {
   runApp(const MyApp());
-  TurboBridge.start(); // Starts HTTP server on port 8888
+
+  if (!kReleaseMode) {
+    unawaited(TurboBridge.start(ensureInitialized: false));
+  }
 }
 ```
+
+Only enable the bridge in non-release builds unless you explicitly want to expose it in production.
 
 ### 2. Connect your AI agent
 
@@ -78,7 +88,7 @@ Add to `.vscode/mcp.json` (committable to version control):
 ```json
 {
   "servers": {
-    "flutter": {
+    "turbo_bridge": {
       "command": "turbo_bridge_mcp"
     }
   }
@@ -90,7 +100,7 @@ Or for Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_conf
 ```json
 {
   "mcpServers": {
-    "flutter": {
+    "turbo_bridge": {
       "command": "turbo_bridge_mcp"
     }
   }

@@ -41,7 +41,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "flutter": {
+    "turbo_bridge": {
       "command": "turbo_bridge_mcp"
     }
   }
@@ -57,7 +57,7 @@ Add to `.vscode/mcp.json` in your project (committable to version control):
 ```json
 {
   "servers": {
-    "flutter": {
+    "turbo_bridge": {
       "command": "dart",
       "args": ["run", "turbo_bridge_mcp"]
     }
@@ -93,7 +93,7 @@ Add to `.cursor/mcp.json` in your project (committable):
 ```json
 {
   "mcpServers": {
-    "flutter": {
+    "turbo_bridge": {
       "command": "dart",
       "args": ["run", "turbo_bridge_mcp"]
     }

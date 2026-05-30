@@ -6,29 +6,34 @@ Drop it into any Flutter app to expose HTTP endpoints for screenshots, widget tr
 
 ## Installation
 
-Add to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  turbo_bridge: ^0.1.2
-```
-
-Or use the CLI:
+Prefer the CLI so Flutter resolves the latest published version:
 
 ```bash
 flutter pub add turbo_bridge
 ```
 
+If your app uses FVM, run `fvm flutter pub add turbo_bridge` instead.
+
+If you edit `pubspec.yaml` manually, use the latest version listed on pub.dev for `turbo_bridge`.
+
 ## Usage
 
 ```dart
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:turbo_bridge/turbo_bridge.dart';
 
 void main() {
   runApp(const MyApp());
-  TurboBridge.start(); // Starts on port 8888
+
+  if (!kReleaseMode) {
+    unawaited(TurboBridge.start(ensureInitialized: false));
+  }
 }
 ```
+
+Only enable the bridge in non-release builds unless you explicitly want it reachable in production.
 
 With custom configuration:
 

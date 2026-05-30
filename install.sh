@@ -8,6 +8,11 @@
 
 set -e
 
+flutter_cmd="flutter"
+if command -v fvm &> /dev/null; then
+    flutter_cmd="fvm flutter"
+fi
+
 echo "🚀 Installing Flutter Turbo Bridge..."
 echo ""
 
@@ -27,14 +32,18 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "📋 Step 1: Add turbo_bridge to your Flutter app:"
 echo ""
-echo "   flutter pub add turbo_bridge"
+echo "   ${flutter_cmd} pub add turbo_bridge"
 echo ""
 echo "   Then in your main.dart:"
 echo ""
+echo "     import 'dart:async';"
+echo "     import 'package:flutter/foundation.dart';"
 echo "     import 'package:turbo_bridge/turbo_bridge.dart';"
 echo "     void main() {"
 echo "       runApp(const MyApp());"
-echo "       TurboBridge.start();"
+echo "       if (!kReleaseMode) {"
+echo "         unawaited(TurboBridge.start(ensureInitialized: false));"
+echo "       }"
 echo "     }"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -44,7 +53,7 @@ echo ""
 echo "   Claude Desktop (~/.config/claude/claude_desktop_config.json):"
 echo '   {'
 echo '     "mcpServers": {'
-echo '       "flutter": {'
+echo '       "turbo_bridge": {'
 echo '         "command": "turbo_bridge_mcp"'
 echo '       }'
 echo '     }'
@@ -53,7 +62,7 @@ echo ""
 echo "   VS Code (.vscode/mcp.json):"
 echo '   {'
 echo '     "servers": {'
-echo '       "flutter": {'
+echo '       "turbo_bridge": {'
 echo '         "command": "turbo_bridge_mcp"'
 echo '       }'
 echo '     }'
