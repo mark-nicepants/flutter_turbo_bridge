@@ -11,6 +11,12 @@ pubspec.lock
 # Test coverage
 coverage/
 
+# Node — applies to every package
+node_modules/
+
+# DevTools UI build artifacts
+packages/turbo_bridge/devtools_ui/dist/
+
 # IDE
 .idea/
 *.iml

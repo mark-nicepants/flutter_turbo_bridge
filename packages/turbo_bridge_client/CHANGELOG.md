@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.1.5
 
 - Added `recentLogs({limit, level})` and `recentNetwork({limit})` methods
   on `BridgeConnection` and `TurboBridgeClient` for fetching the app's
   pushed logs and HTTP activity from the bridge.
+- Tracks turbo_bridge `0.1.5` for the bridgeVersion field in fixtures.
 
 ## 0.1.4
 

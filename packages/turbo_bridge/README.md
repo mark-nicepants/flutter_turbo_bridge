@@ -125,7 +125,7 @@ Returns app metadata.
   "pixelRatio": 3.0,
   "platform": "macos",
   "darkMode": false,
-  "bridgeVersion": "0.1.4"
+  "bridgeVersion": "0.1.5"
 }
 ```
 
@@ -246,9 +246,11 @@ By default the bridge prefers matches that are visible, on the active route, and
 
 ## DevTools web UI
 
-Turbo Bridge ships with an embedded browser-based DevTools that you can
-open in any browser while the app is running. It's served on its own port
-and is **off by default** — enable it via `BridgeConfig`:
+Turbo Bridge ships with an embedded browser-based DevTools — a unified
+timeline showing your app's network calls, logs, navigation, and errors
+side by side, with full request/response detail on click and one-click
+cURL export. It's served on its own port and is **off by default** —
+enable it via `BridgeConfig`:
 
 ```dart
 TurboBridge.start(
@@ -264,89 +266,121 @@ TurboBridge.start(
 Open `http://localhost:8889/` in your browser. Never enable in a production
 build — DevTools exposes the same mutating endpoints as the JSON API.
 
-### Tabs
+### Timeline at a glance
 
-| Tab | Purpose |
+![DevTools timeline overview with network duration bars, log heatmap, navigation pills, errors, a minimap scrubber, and a live event list below](../../docs/images/devtools_overview.png)
+
+Five horizontal tracks above the time axis, each colored by category and
+clipped so events never visually overlap:
+
+| Row | What it shows |
 |---|---|
-| Overview | App info + health |
-| Screenshot | Live capture, click-to-tap, inspector mode |
-| Widget tree | Recursive collapsible view with filter |
-| Find | Run `/find` queries from the UI |
-| App logs | Logs the app pushes into `TurboBridge.instance.logs` |
-| Network | Network calls the app pushes into `TurboBridge.instance.network` |
-| Bridge log | Live tail of JSON-API requests with request/response detail |
+| Network | App-side HTTP calls fed in via `TurboBridge.instance.network`. Pills span the full request duration. |
+| Logs | App-side log lines via `TurboBridge.instance.logs`. Rendered as thin colored bars (sky / emerald / yellow / rose) for a heatmap effect under heavy log volume. |
+| Navigation | Route push / pop / replace events, free when you use `TurboNavigationObserver`. |
+| Errors | Anything pushed at `LogLevel.error`. |
+| Bridge API | Internal JSON-API traffic (MCP, DevTools polling, external clients). **Off by default**; muted slate palette when enabled. |
 
-### Screenshot tab — live preview, click-to-tap, inspect mode
+Below the tracks: a **minimap** of the full retained history with a
+draggable viewport rectangle that controls the visible window. Below
+that: a live, scroll-anchored event list.
 
-![Screenshot tab showing the running app, captured PNG, and capture metadata](../../docs/images/devtools_screenshot.png)
+### Interactions
 
-In **tap mode** (default), clicking on the displayed image translates
-browser pixels to the app's logical coordinate space and sends `POST /tap`.
-After a successful tap the screenshot auto-refreshes so you see the result.
+- **Wheel scroll** anywhere on the timeline → zoom in/out around the
+  cursor.
+- **Drag the minimap viewport rectangle** → pan the window through
+  history. Click empty space to jump.
+- **`▶ following`** chip top-right → window stays glued to the latest
+  event. Click `jump to live` to re-enable after manual zoom/pan.
+- **`show all`** → snap the window to the full retained range.
+- **`keep` dropdown** → cap retention (10s default 30s · 1m · 5m · 30m · ∞).
+- **Single-click a row label** → toggle that category on/off.
+- **Double-click a row label** → solo that category (others off).
+  Double-click again to restore.
+- **`OK` / `FAILED`** chips → filter the event list by status.
+- **Click any pill or list row** → modal popup with detail (see below).
 
-In **inspect mode** (toggle in the toolbar), clicking instead calls
-`POST /pick` and renders a blue bounding-rect overlay on the image plus
-a sidebar listing the widget chain. Click any entry in the chain to
-highlight that ancestor.
+![Solo-network view (double-click on Network row) — everything else dimmed](../../docs/images/devtools_solo_network.png)
 
-![Inspector mode — widget under the click highlighted with a chain sidebar](../../docs/images/devtools_inspector.png)
+### Postman-style network detail
 
-### App logs
+Click a network event for a side-by-side modal with five tabs:
 
-`TurboBridge.instance.logs` is a public sink your app code (or any package
-you use) can push log lines into. The DevTools "App logs" tab live-tails
-them via Server-Sent Events; the JSON-API `GET /logs` exposes them to MCP
-hosts and any external tooling.
+- **Response** — status, headers, pretty-printed JSON body.
+- **Request** — headers + body (or `(empty)` for GETs).
+- **Timing** — total duration, start/finish ISO timestamps.
+- **cURL** — a copy-pastable curl command with bearer tokens, cookies,
+  and `*-api-key` headers masked as `##TOKEN##` / `##VALUE##`. One-click
+  `copy` button.
+- **Raw** — the underlying JSON record.
+
+![Network detail with cURL tab open — bearer token masked with ##TOKEN##](../../docs/images/devtools_curl_tab.png)
+
+### Wiring app data into the timeline
+
+Three small public APIs let your app feed into the timeline. All are
+no-ops when DevTools is disabled, so leave them in non-debug builds if
+you like.
 
 ```dart
 final bridge = TurboBridge.instance;
+
+// 1) Logs (sky / emerald / yellow / rose by level).
 bridge.logs.info('User signed in', category: 'auth', data: {'userId': '123'});
 bridge.logs.warn('Slow image decode', category: 'render');
 bridge.logs.error('Refresh failed', category: 'api', error: e, stackTrace: st);
-```
 
-![App logs tab showing emitted logs with level filter](../../docs/images/devtools_logs.png)
+// 2) Navigation — drop the observer into your MaterialApp.
+MaterialApp(
+  navigatorObservers: [TurboNavigationObserver()],
+  // ...
+);
 
-### Network
-
-`TurboBridge.instance.network.record(...)` accepts a completed HTTP call
-and surfaces it in the DevTools "Network" tab and over MCP. Wire it from
-your Dio interceptor / `http` wrapper / GraphQL client:
-
-```dart
-// Example Dio interceptor sketch
+// 3) Network — wire your HTTP client. Dio example:
 dio.interceptors.add(InterceptorsWrapper(
   onResponse: (response, handler) {
-    final sw = Stopwatch()..start();
-    TurboBridge.instance.network.record(
-      method: response.requestOptions.method,
-      url: response.requestOptions.uri.toString(),
+    final opts = response.requestOptions;
+    bridge.network.record(
+      method: opts.method,
+      url: opts.uri.toString(),
       status: response.statusCode,
-      requestHeaders: Map<String, String>.from(response.requestOptions.headers),
-      requestBody: response.requestOptions.data?.toString(),
+      durationMs: response.extra['duration'] as int? ?? 0,
+      requestHeaders: Map<String, String>.from(opts.headers),
+      requestBody: opts.data?.toString(),
       responseHeaders: response.headers.map.map((k, v) => MapEntry(k, v.join(', '))),
       responseBody: response.data?.toString(),
-      durationMs: sw.elapsedMilliseconds,
     );
     handler.next(response);
   },
 ));
 ```
 
-Clicking a row opens a detail panel with request/response headers and
-pretty-printed JSON bodies. Bodies above 16 KB are truncated with a
-warning marker.
+All three are also exposed via the JSON API (`/logs`, `/network`, `/info`)
+and over MCP (`flutter_recent_logs`, `flutter_recent_network`), so the
+data is reusable outside the browser UI.
 
-![Network tab with detail panel — headers and pretty-printed JSON body](../../docs/images/devtools_network.png)
+### Architecture / build
 
-### Bridge log
+Source lives under `packages/turbo_bridge/devtools_ui/` — TypeScript +
+Tailwind v4 + Vite. `vite-plugin-singlefile` bundles JS + CSS into one
+self-contained `index.html` (~50 KB / 14 KB gzip) that ships as a
+Flutter asset and is loaded once at server start via `rootBundle`.
 
-The JSON-API request log includes full request and response details
-(headers + body excerpts) for every call the bridge served. Clicking a
-row opens a detail panel — great for debugging exactly what your AI agent
-or MCP host is sending.
+Run locally during UI hacking:
+```bash
+cd packages/turbo_bridge/devtools_ui
+npm install
+npm run dev   # Vite dev server with HMR + a fake "mock device" attached
+```
+The mock device stubs `fetch` + `EventSource` to stream plausible logs,
+network calls, and route changes, so you can iterate on the UI without
+a Flutter app running.
 
-![Bridge log detail showing headers and JSON body](../../docs/images/devtools_bridge_log.png)
+For a production rebuild:
+```bash
+melos run build:devtools     # from the repo root
+```
 
 ### Security
 
@@ -355,8 +389,11 @@ or MCP host is sending.
   logs a warning at startup.
 - Mutating endpoints on the DevTools port require the `x-turbo-devtools: 1`
   same-origin header — drive-by browser pages can't puppet your app.
-- DevTools-port traffic does not appear in the Bridge log; only direct
-  JSON-API calls do, so polling from the UI doesn't spam it.
+- The `Bridge API` row is **off by default** so MCP / DevTools chatter
+  doesn't drown out your app traffic. Toggle it on when you need it.
+- All bodies are capped at 16 KB; common secret-shaped headers
+  (`Authorization`, `Cookie`, `*-api-key`, `*-token`) are masked in the
+  cURL export.
 
 ## Architecture
 

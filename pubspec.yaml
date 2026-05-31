@@ -45,3 +45,11 @@ melos:
           - turbo_bridge
     format:
       run: dart format --line-length 80 --set-exit-if-changed .
+    build:devtools:
+      description: |
+        Rebuild the DevTools web bundle (Vite + TS + Tailwind) into
+        packages/turbo_bridge/lib/src/devtools/web/index.html. Run this
+        after editing files under packages/turbo_bridge/devtools_ui/.
+      run: |
+        cd packages/turbo_bridge/devtools_ui && \
+          npm ci --silent && npm run build

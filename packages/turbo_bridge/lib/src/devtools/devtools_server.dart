@@ -9,6 +9,7 @@ import '../server/router.dart';
 import 'devtools_router.dart';
 import 'event_bus.dart';
 import 'log_sink.dart';
+import 'navigation_log.dart';
 import 'network_log.dart';
 import 'request_log.dart';
 import 'static_handler.dart';
@@ -34,6 +35,7 @@ class DevToolsServer {
     required RequestLog requestLog,
     required LogSink logs,
     required NetworkLog network,
+    required NavigationLog navigation,
     required Map<String, DevToolsAsset> webAssets,
   }) {
     final router = DevToolsRouter(
@@ -42,6 +44,7 @@ class DevToolsServer {
       requestLog: requestLog,
       logs: logs,
       network: network,
+      navigation: navigation,
       staticHandler: DevToolsStaticHandler(assets: webAssets),
     );
     return DevToolsServer._(config: config, router: router);
