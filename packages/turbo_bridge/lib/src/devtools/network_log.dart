@@ -66,8 +66,7 @@ class NetworkLog {
   final Queue<NetworkCall> _entries = Queue<NetworkCall>();
   int _nextId = 1;
 
-  NetworkLog({required DevToolsEventBus bus, this.capacity = 300})
-      : _bus = bus;
+  NetworkLog({required DevToolsEventBus bus, this.capacity = 300}) : _bus = bus;
 
   int get length => _entries.length;
 

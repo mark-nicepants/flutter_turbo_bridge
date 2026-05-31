@@ -93,14 +93,32 @@ class LogSink {
   }
 
   /// Shortcut for the common levels.
-  LogEntry trace(String message, {String? category, Map<String, dynamic>? data}) =>
-      add(level: LogLevel.trace, message: message, category: category, data: data);
-  LogEntry debug(String message, {String? category, Map<String, dynamic>? data}) =>
-      add(level: LogLevel.debug, message: message, category: category, data: data);
-  LogEntry info(String message, {String? category, Map<String, dynamic>? data}) =>
-      add(level: LogLevel.info, message: message, category: category, data: data);
+  LogEntry trace(String message,
+          {String? category, Map<String, dynamic>? data}) =>
+      add(
+          level: LogLevel.trace,
+          message: message,
+          category: category,
+          data: data);
+  LogEntry debug(String message,
+          {String? category, Map<String, dynamic>? data}) =>
+      add(
+          level: LogLevel.debug,
+          message: message,
+          category: category,
+          data: data);
+  LogEntry info(String message,
+          {String? category, Map<String, dynamic>? data}) =>
+      add(
+          level: LogLevel.info,
+          message: message,
+          category: category,
+          data: data);
   LogEntry warn(String message,
-          {String? category, Map<String, dynamic>? data, Object? error, StackTrace? stackTrace}) =>
+          {String? category,
+          Map<String, dynamic>? data,
+          Object? error,
+          StackTrace? stackTrace}) =>
       add(
         level: LogLevel.warn,
         message: message,
@@ -110,7 +128,10 @@ class LogSink {
         stackTrace: stackTrace,
       );
   LogEntry error(String message,
-          {String? category, Map<String, dynamic>? data, Object? error, StackTrace? stackTrace}) =>
+          {String? category,
+          Map<String, dynamic>? data,
+          Object? error,
+          StackTrace? stackTrace}) =>
       add(
         level: LogLevel.error,
         message: message,

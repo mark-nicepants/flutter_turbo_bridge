@@ -214,7 +214,13 @@ class BridgeRouter {
     final limit =
         int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 100;
     final minLevel = request.url.queryParameters['level'];
-    final order = const {'trace': 0, 'debug': 1, 'info': 2, 'warn': 3, 'error': 4};
+    final order = const {
+      'trace': 0,
+      'debug': 1,
+      'info': 2,
+      'warn': 3,
+      'error': 4
+    };
     final entries = sink
         .snapshot()
         .where((e) =>

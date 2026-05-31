@@ -143,5 +143,6 @@ void main(List<String> args) {
   stdout.writeln('done. Don\'t forget:');
   stdout.writeln('  - eyeball server_test.dart "update-recommended" case');
   stdout.writeln('  - add a CHANGELOG.md entry per package');
-  stdout.writeln('  - melos run analyze && (cd packages/turbo_bridge && flutter test)');
+  stdout.writeln(
+      '  - melos run analyze && (cd packages/turbo_bridge && flutter test)');
 }

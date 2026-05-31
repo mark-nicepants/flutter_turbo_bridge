@@ -74,19 +74,65 @@ Every new feature follows this lifecycle:
 
 ### After Making Changes
 
-1. Run `dart analyze` in the affected package — zero warnings
-2. Run `dart test` in the affected package — all pass
-3. If you changed a public API, update `docs/IMPLEMENTATION_PLAN.md`
-4. If you changed scope/deliverables, update `docs/ROADMAP.md`
-5. Run the benchmark locally against a macOS debug build if you changed anything in `turbo_bridge` or `turbo_bridge_client`:
+1. **Format every Dart file** — run `melos run format --no-select` from the repo root. CI uses `dart format --line-length 80 --set-exit-if-changed .`, so any unformatted Dart code fails the pipeline. There is no "format on save" hook — this is on you.
+2. Run `melos run analyze --no-select` — zero warnings.
+3. Run `melos run test:dart --no-select` and `(cd packages/turbo_bridge && flutter test)` — all pass.
+4. If you changed a public API, update `docs/IMPLEMENTATION_PLAN.md`.
+5. If you changed scope/deliverables, update `docs/ROADMAP.md`.
+6. Run the benchmark locally against a macOS debug build if you changed anything in `turbo_bridge` or `turbo_bridge_client`:
    ```bash
    # Terminal 1: Start target app
    cd apps/target_app && flutter run -d macos --debug
-   
+
    # Terminal 2: Run benchmark (bridge-only is sufficient for most changes)
    cd apps/benchmark && dart run bin/benchmark.dart --bridge-only -p 8888 -n 50
    ```
    All benchmarks must pass (10/10) before considering the change complete.
+
+## Formatting Rules
+
+- **Dart**: `dart format --line-length 80` (matches `melos run format`). 80-column line length is non-negotiable — CI rejects anything else. Run formatter on every file you touch, including tests and `tool/` scripts.
+- **TypeScript / CSS / HTML** (DevTools UI under `packages/turbo_bridge/devtools_ui/`): Prettier defaults; let your editor handle it. `npm run typecheck` must pass (strict TS, `noUnusedLocals` on).
+- **Markdown**: no fixed line length, but wrap at ~80 cols where reasonable. Don't reformat existing docs you aren't touching.
+- **YAML** (pubspec, melos, CI): 2-space indent.
+- **No tabs anywhere.**
+- Trailing newline on every file.
+
+## Version Bump Workflow
+
+The version string is centralized but lives in multiple files (pubspec, Dart constants, README install snippets, tests, docs). Use the bump script — never edit version strings by hand:
+
+```bash
+# From the repo root:
+dart run tool/bump_version.dart 0.1.6
+```
+
+The script edits, in one shot:
+
+- `packages/turbo_bridge/pubspec.yaml` — `version:`
+- `packages/turbo_bridge_client/pubspec.yaml` — `version:`
+- `packages/turbo_bridge_mcp/pubspec.yaml` — `version:` and the `turbo_bridge_client: ^…` dep pin
+- `packages/turbo_bridge/lib/src/version.dart` — `turboBridgeVersion` constant (the single source of truth read by `AppInfoService` and tests)
+- `packages/turbo_bridge_mcp/lib/src/version_info.dart` — `turboBridgeMcpVersion` constant
+- `packages/turbo_bridge/README.md` — `"bridgeVersion": "…"` example
+- `packages/turbo_bridge_client/README.md` — install snippet
+- `docs/IMPLEMENTATION_PLAN.md` — `"bridgeVersion": "…"` example
+- `packages/turbo_bridge_client/test/bridge_connection_test.dart` — fixture values
+- `packages/turbo_bridge_mcp/test/server_test.dart` — `mcpServerVersion` expectations
+
+**Two manual follow-ups after running it:**
+
+1. **`server_test.dart` "update-recommended" case** — the comparison test deliberately uses a `bridgeVersion` strictly greater than the MCP version. After bumping MCP, eyeball that test and bump its `bridgeVersion` to one more than the new MCP version.
+2. **CHANGELOG entry per package** — the script doesn't touch CHANGELOGs. Add a section in each package's `CHANGELOG.md` describing what shipped.
+
+Then:
+
+```bash
+melos run format --no-select
+melos run analyze --no-select
+(cd packages/turbo_bridge && flutter test)
+melos run test:dart --no-select
+```
 
 ## Code Guidelines
 

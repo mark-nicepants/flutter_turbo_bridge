@@ -354,22 +354,20 @@ void main() {
     final fixtureAssets = <String, DevToolsAsset>{
       'index.html': const DevToolsAsset.text(
           '<html><body>shell</body></html>', 'text/html; charset=utf-8'),
-      'styles.css':
-          const DevToolsAsset.text('body { color: red }', 'text/css'),
+      'styles.css': const DevToolsAsset.text('body { color: red }', 'text/css'),
     };
 
     test('serves /index.html by default', () {
       final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res =
-          handler.handle(Request('GET', Uri.parse('http://x:8889/')));
+      final res = handler.handle(Request('GET', Uri.parse('http://x:8889/')));
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], startsWith('text/html'));
     });
 
     test('unknown paths fall back to the SPA shell', () {
       final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res = handler.handle(
-          Request('GET', Uri.parse('http://x:8889/some/deep/link')));
+      final res = handler
+          .handle(Request('GET', Uri.parse('http://x:8889/some/deep/link')));
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], startsWith('text/html'));
     });
@@ -384,8 +382,8 @@ void main() {
 
     test('404 when no assets are loaded at all', () {
       final handler = DevToolsStaticHandler(assets: const {});
-      final res = handler.handle(
-          Request('GET', Uri.parse('http://x:8889/anything')));
+      final res =
+          handler.handle(Request('GET', Uri.parse('http://x:8889/anything')));
       expect(res.statusCode, 404);
     });
   });
@@ -415,8 +413,7 @@ void main() {
         navigation: NavigationLog(bus: bus),
         staticHandler: DevToolsStaticHandler(assets: {
           'index.html': const DevToolsAsset.text(
-              '<html><body>shell</body></html>',
-              'text/html; charset=utf-8'),
+              '<html><body>shell</body></html>', 'text/html; charset=utf-8'),
         }),
       );
     });
@@ -433,8 +430,8 @@ void main() {
           status: 200,
           durationMs: 1,
           remoteAddress: '127.0.0.1');
-      final res = await router.handler(Request(
-          'GET', Uri.parse('http://x:8889/api/devtools/requests')));
+      final res = await router.handler(
+          Request('GET', Uri.parse('http://x:8889/api/devtools/requests')));
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       expect((body['entries'] as List).length, 1);
@@ -453,8 +450,8 @@ void main() {
     });
 
     test('GET /api/health is proxied to the bridge router', () async {
-      final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8889/api/health')));
+      final res = await router
+          .handler(Request('GET', Uri.parse('http://x:8889/api/health')));
       expect(res.statusCode, 200);
       final json = jsonDecode(await res.readAsString());
       expect(json['status'], 'ok');
@@ -513,8 +510,7 @@ void main() {
 
       final detail = await router.handler(Request(
           'GET', Uri.parse('http://x:8889/api/devtools/network/${call.id}')));
-      final d =
-          jsonDecode(await detail.readAsString()) as Map<String, dynamic>;
+      final d = jsonDecode(await detail.readAsString()) as Map<String, dynamic>;
       expect(d['responseBody'], '{"id":1}');
     });
 
@@ -539,13 +535,13 @@ void main() {
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       expect(body['requestBody'], '{"x":1,"y":2}');
       expect(body['responseBody'], '{"success":true}');
-      expect((body['responseHeaders'] as Map)['content-type'],
-          'application/json');
+      expect(
+          (body['responseHeaders'] as Map)['content-type'], 'application/json');
     });
 
     test('/events opens an SSE stream and pushes emitted events', () async {
-      final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8889/events')));
+      final res = await router
+          .handler(Request('GET', Uri.parse('http://x:8889/events')));
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], 'text/event-stream');
 
@@ -588,8 +584,8 @@ void main() {
     test('/logs returns entries the sink has accumulated', () async {
       router.logs!.info('first');
       router.logs!.warn('second', category: 'auth');
-      final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8888/logs')));
+      final res =
+          await router.handler(Request('GET', Uri.parse('http://x:8888/logs')));
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       final entries = body['entries'] as List;
@@ -601,8 +597,8 @@ void main() {
       router.logs!.debug('d');
       router.logs!.info('i');
       router.logs!.error('e');
-      final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8888/logs?level=warn')));
+      final res = await router
+          .handler(Request('GET', Uri.parse('http://x:8888/logs?level=warn')));
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       final entries = body['entries'] as List;
       expect(entries.length, 1);
@@ -613,8 +609,8 @@ void main() {
       for (var i = 0; i < 10; i++) {
         router.logs!.info('m$i');
       }
-      final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8888/logs?limit=3')));
+      final res = await router
+          .handler(Request('GET', Uri.parse('http://x:8888/logs?limit=3')));
       final entries = (jsonDecode(await res.readAsString())
           as Map<String, dynamic>)['entries'] as List;
       expect(entries.length, 3);
@@ -644,8 +640,8 @@ void main() {
         status: 200,
         durationMs: 5,
       );
-      final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8888/network')));
+      final res = await router
+          .handler(Request('GET', Uri.parse('http://x:8888/network')));
       final entries = (jsonDecode(await res.readAsString())
           as Map<String, dynamic>)['entries'] as List;
       expect(entries.length, 1);
@@ -657,7 +653,6 @@ void main() {
           await router.handler(Request('GET', Uri.parse('http://x:8888/pick')));
       expect(res.statusCode, 400);
     });
-
   });
 
   group('TurboBridge end-to-end with DevTools', () {
@@ -699,8 +694,8 @@ void main() {
             .getUrl(Uri.parse('http://127.0.0.1:${bridge.devToolsPort}/'));
         final indexResp = await indexReq.close();
         expect(indexResp.statusCode, 200);
-        expect(indexResp.headers.value('content-type'),
-            startsWith('text/html'));
+        expect(
+            indexResp.headers.value('content-type'), startsWith('text/html'));
         final indexBody = await indexResp.transform(utf8.decoder).join();
         expect(indexBody, contains('Turbo Bridge'));
         // The bundle now inlines its JS — there should be a <script>

@@ -144,8 +144,7 @@ class _BodyExcerpt {
 _BodyExcerpt? _excerpt(List<int>? bytes) {
   if (bytes == null || bytes.isEmpty) return null;
   final truncated = bytes.length > _bodyExcerptMax;
-  final slice =
-      truncated ? bytes.sublist(0, _bodyExcerptMax) : bytes;
+  final slice = truncated ? bytes.sublist(0, _bodyExcerptMax) : bytes;
   // Try UTF-8 first; on failure (binary payload), return base64-ish marker.
   try {
     final s = String.fromCharCodes(slice);
