@@ -10,6 +10,7 @@ import 'bridge_config.dart';
 import 'devtools/devtools_server.dart';
 import 'devtools/event_bus.dart';
 import 'devtools/log_sink.dart';
+import 'devtools/navigation_log.dart';
 import 'devtools/network_log.dart';
 import 'devtools/request_log.dart';
 import 'devtools/web_assets.dart';
@@ -40,6 +41,7 @@ class TurboBridge {
         requestLog = RequestLog(capacity: config.devToolsRequestLogSize) {
     logs = LogSink(bus: eventBus);
     network = NetworkLog(bus: eventBus);
+    navigation = NavigationLog(bus: eventBus);
   }
 
   static TurboBridge? _instance;
@@ -86,6 +88,11 @@ class TurboBridge {
   /// (Dio, http, GraphQL) into this so DevTools shows what the app is
   /// talking to in addition to bridge JSON-API traffic.
   late final NetworkLog network;
+
+  /// App-side navigation recorder. Push route changes here so the
+  /// DevTools timeline shows them next to logs and network calls.
+  /// Wire from a `NavigatorObserver`.
+  late final NavigationLog navigation;
 
   HttpServer? _server;
   DevToolsServer? _devToolsServer;
@@ -187,6 +194,7 @@ class TurboBridge {
         requestLog: requestLog,
         logs: logs,
         network: network,
+        navigation: navigation,
         webAssets: webAssets,
       );
       await _devToolsServer!.start();

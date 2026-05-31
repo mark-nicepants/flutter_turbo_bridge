@@ -208,6 +208,42 @@ void main() {
     });
   });
 
+  group('NavigationLog', () {
+    test('push records a navigation entry and emits an event', () async {
+      final bus = DevToolsEventBus();
+      final nav = NavigationLog(bus: bus);
+      final events = <String>[];
+      final sub = bus.stream.listen((e) => events.add(e.type));
+      nav.push('/home');
+      nav.push('/cart', from: '/home');
+      await Future<void>.delayed(Duration.zero);
+      expect(events, ['navigation', 'navigation']);
+      expect(nav.snapshot().map((e) => e.route).toList(), ['/home', '/cart']);
+      expect(nav.snapshot().last.from, '/home');
+      await sub.cancel();
+      await bus.close();
+    });
+
+    test('drops oldest entries past capacity', () {
+      final bus = DevToolsEventBus();
+      final nav = NavigationLog(bus: bus, capacity: 2);
+      nav.push('/a');
+      nav.push('/b');
+      nav.push('/c');
+      expect(nav.snapshot().map((e) => e.route).toList(), ['/b', '/c']);
+      bus.close();
+    });
+
+    test('clear empties the buffer', () {
+      final bus = DevToolsEventBus();
+      final nav = NavigationLog(bus: bus);
+      nav.push('/x');
+      nav.clear();
+      expect(nav.length, 0);
+      bus.close();
+    });
+  });
+
   group('NetworkLog', () {
     test('emits a network event and exposes byId', () async {
       final bus = DevToolsEventBus();
@@ -376,6 +412,7 @@ void main() {
         requestLog: log,
         logs: LogSink(bus: bus),
         network: NetworkLog(bus: bus),
+        navigation: NavigationLog(bus: bus),
         staticHandler: DevToolsStaticHandler(assets: {
           'index.html': const DevToolsAsset.text(
               '<html><body>shell</body></html>',
@@ -432,6 +469,7 @@ void main() {
         requestLog: log,
         logs: sink,
         network: NetworkLog(bus: bus),
+        navigation: NavigationLog(bus: bus),
         staticHandler: DevToolsStaticHandler(assets: const {}),
       );
       sink.info('hello world', category: 'auth');
@@ -455,6 +493,7 @@ void main() {
         requestLog: log,
         logs: LogSink(bus: bus),
         network: net,
+        navigation: NavigationLog(bus: bus),
         staticHandler: DevToolsStaticHandler(assets: const {}),
       );
       final call = net.record(
@@ -663,24 +702,10 @@ void main() {
         expect(indexResp.headers.value('content-type'),
             startsWith('text/html'));
         final indexBody = await indexResp.transform(utf8.decoder).join();
-        expect(indexBody, contains('Turbo Bridge DevTools'));
-        expect(indexBody, contains('id="panel-screenshot"'));
-
-        // CSS and JS are also reachable.
-        final cssReq = await client.getUrl(Uri.parse(
-            'http://127.0.0.1:${bridge.devToolsPort}/styles.css'));
-        final cssResp = await cssReq.close();
-        expect(cssResp.statusCode, 200);
-        expect(cssResp.headers.value('content-type'), startsWith('text/css'));
-        await cssResp.drain<void>();
-
-        final jsReq = await client.getUrl(
-            Uri.parse('http://127.0.0.1:${bridge.devToolsPort}/app.js'));
-        final jsResp = await jsReq.close();
-        expect(jsResp.statusCode, 200);
-        expect(jsResp.headers.value('content-type'),
-            startsWith('application/javascript'));
-        await jsResp.drain<void>();
+        expect(indexBody, contains('Turbo Bridge'));
+        // The bundle now inlines its JS — there should be a <script>
+        // block in the shell.
+        expect(indexBody, contains('<script'));
 
         client.close(force: true);
       } finally {

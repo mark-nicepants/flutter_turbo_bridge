@@ -6,6 +6,7 @@ import 'package:shelf/shelf.dart';
 import '../server/router.dart';
 import 'event_bus.dart';
 import 'log_sink.dart';
+import 'navigation_log.dart';
 import 'network_log.dart';
 import 'request_log.dart';
 import 'static_handler.dart';
@@ -25,6 +26,7 @@ class DevToolsRouter {
   final RequestLog requestLog;
   final LogSink logs;
   final NetworkLog network;
+  final NavigationLog navigation;
 
   DevToolsRouter({
     required this.bridgeRouter,
@@ -32,6 +34,7 @@ class DevToolsRouter {
     required this.requestLog,
     required this.logs,
     required this.network,
+    required this.navigation,
     required this.staticHandler,
   });
 
@@ -48,6 +51,11 @@ class DevToolsRouter {
     }
     if (path == 'api/devtools/logs') {
       final entries = logs.snapshot().map((e) => e.toJson()).toList();
+      return Response.ok(jsonEncode({'entries': entries}),
+          headers: {'content-type': 'application/json'});
+    }
+    if (path == 'api/devtools/navigation') {
+      final entries = navigation.snapshot().map((e) => e.toJson()).toList();
       return Response.ok(jsonEncode({'entries': entries}),
           headers: {'content-type': 'application/json'});
     }

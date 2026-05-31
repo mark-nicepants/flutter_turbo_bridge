@@ -1,25 +1,41 @@
 # Changelog
 
-## Unreleased
+## 0.1.5
 
-- Added an in-app DevTools web UI served on a separate port (default `8889`,
-  off by default via `BridgeConfig.enableDevTools`). Tabs for app info,
-  live screenshot with click-to-tap and widget inspector mode, widget
-  tree, find, app logs, network calls, and a bridge request log — all
-  live-streamed via Server-Sent Events.
-- Added `LogSink` (`TurboBridge.instance.logs`) and `NetworkLog`
-  (`TurboBridge.instance.network`) public APIs so apps can push log lines
-  and HTTP-client activity into the bridge. Exposed via `GET /logs` and
-  `GET /network` for MCP and external tooling.
-- Added `GET/POST /pick` endpoint that hit-tests the widget tree at an
-  `(x, y)` point and returns the widget chain with type, key, rect, and
-  text.
-- Bridge middleware now captures request/response headers and body
-  excerpts (16 KB cap) when DevTools is enabled, so the bridge log
-  detail panel can show full requests.
-- HTML/CSS/JS source for the DevTools UI lives under
-  `lib/src/devtools/web/` and is loaded once via `rootBundle` at server
-  start; declared in `flutter.assets`.
+- **Unified timeline DevTools** served on a separate port (default
+  `8889`, off by default via `BridgeConfig.enableDevTools`). Replaces
+  the previous tab-based UI with a single-page timeline showing
+  Network / Logs / Navigation / Errors / Bridge API tracks above a
+  draggable minimap and a scroll-anchored event list. Wheel-zoom,
+  drag-pan, click-to-toggle and double-click-to-solo on rows,
+  status-filter chips, configurable retention (10s/30s/1m/5m/30m/∞).
+- **Postman-style network detail** modal: Response / Request / Timing /
+  cURL / Raw tabs. The cURL tab exports a copy-pastable command with
+  `Authorization`, `Cookie`, and `*-api-key` / `*-token` headers
+  automatically masked as `##TOKEN##` / `##VALUE##`.
+- **`TurboNavigationObserver`** — drop into `MaterialApp.navigatorObservers`
+  to surface every `didPush` / `didPop` / `didReplace` on the timeline.
+- **`LogSink`** (`TurboBridge.instance.logs`) and **`NetworkLog`**
+  (`TurboBridge.instance.network`) public APIs so apps can push log
+  lines and HTTP-client activity into the bridge. Exposed via
+  `GET /logs` and `GET /network` for MCP and external tooling.
+- **`GET/POST /pick`** endpoint that hit-tests the widget tree at an
+  `(x, y)` point and returns the widget chain with type, key, rect,
+  and text. Backs the inspector mode that earlier shipped in 0.1.4 and
+  is still available via the underlying API.
+- **Bridge middleware** now captures request/response headers and body
+  excerpts (16 KB cap) when DevTools is enabled.
+- **Bridge API row** (the bridge's own JSON-API traffic from MCP /
+  DevTools / external clients) is now a separate, distinctly-colored
+  category — off by default so it doesn't drown out app traffic.
+- **TypeScript + Tailwind v4 + Vite build** for the DevTools UI under
+  `packages/turbo_bridge/devtools_ui/`. `npm run dev` spins up Vite
+  with a fake "mock device" so the UI can be developed without a
+  Flutter app attached.
+- Centralized the package version constant in `lib/src/version.dart`
+  (`turboBridgeVersion`); used by `AppInfoService` and tests. A
+  `tool/bump_version.dart` script keeps every version reference in
+  sync — see the script's docstring for usage.
 
 ## 0.1.4
 

@@ -4,50 +4,19 @@ import 'package:flutter/services.dart';
 
 import 'static_handler.dart';
 
-/// Logical paths that the DevTools UI references, in the order they
-/// should be loaded. Source lives in `lib/src/devtools/web/` and is
-/// shipped with the package via `flutter.assets` in pubspec.yaml.
+/// Loads the DevTools single-file web bundle.
 ///
-/// We try two key variants because the asset key differs between
-/// consumer apps (where Flutter prefixes `packages/<pkg>/` and strips
-/// `lib/`) and the package's own tests (where the key is the raw
-/// pubspec-declared path).
-const Map<String, _AssetSource> _sources = {
-  'index.html': _AssetSource(
-    [
-      'packages/turbo_bridge/lib/src/devtools/web/index.html',
-      'lib/src/devtools/web/index.html',
-    ],
-    'text/html; charset=utf-8',
-  ),
-  'styles.css': _AssetSource(
-    [
-      'packages/turbo_bridge/lib/src/devtools/web/styles.css',
-      'lib/src/devtools/web/styles.css',
-    ],
-    'text/css; charset=utf-8',
-  ),
-  'app.js': _AssetSource(
-    [
-      'packages/turbo_bridge/lib/src/devtools/web/app.js',
-      'lib/src/devtools/web/app.js',
-    ],
-    'application/javascript; charset=utf-8',
-  ),
-};
+/// The TypeScript / Tailwind source lives under
+/// `packages/turbo_bridge/devtools_ui/`. `npm run build` (or
+/// `melos run build:devtools`) bundles it via Vite + vite-plugin-singlefile
+/// into a single self-contained `index.html` written into
+/// `lib/src/devtools/web/index.html`. That file is declared in
+/// `pubspec.yaml` under `flutter.assets` and loaded here at server start.
+const List<String> _indexCandidates = [
+  'packages/turbo_bridge/lib/src/devtools/web/index.html',
+  'lib/src/devtools/web/index.html',
+];
 
-class _AssetSource {
-  final List<String> candidateKeys;
-  final String contentType;
-  const _AssetSource(this.candidateKeys, this.contentType);
-}
-
-/// Loads the DevTools web bundle from the package's Flutter assets.
-///
-/// Called once at server start. Subsequent calls return the cached map.
-/// Returns null entries for assets that fail to load (the static handler
-/// then 404s on them) but never throws — a missing asset shouldn't take
-/// down the bridge.
 class DevToolsWebAssetLoader {
   static Map<String, DevToolsAsset>? _cache;
 
@@ -57,18 +26,19 @@ class DevToolsWebAssetLoader {
   }) async {
     if (_cache != null && !forceReload) return _cache!;
     final source = bundle ?? rootBundle;
-    final result = <String, DevToolsAsset>{};
-    for (final entry in _sources.entries) {
-      for (final key in entry.value.candidateKeys) {
-        try {
-          final body = await source.loadString(key);
-          result[entry.key] =
-              DevToolsAsset.text(body, entry.value.contentType);
-          break;
-        } catch (_) {
-          // Try the next candidate key.
-        }
+    String? body;
+    for (final key in _indexCandidates) {
+      try {
+        body = await source.loadString(key);
+        break;
+      } catch (_) {
+        // try next candidate
       }
+    }
+    final result = <String, DevToolsAsset>{};
+    if (body != null) {
+      result['index.html'] =
+          DevToolsAsset.text(body, 'text/html; charset=utf-8');
     }
     _cache = result;
     return result;

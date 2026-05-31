@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import '../version.dart';
+
 /// Service for providing app metadata.
 class AppInfoService {
   /// Get current app information.
@@ -33,7 +35,7 @@ class AppInfoService {
       'darkMode':
           binding.platformDispatcher.platformBrightness == ui.Brightness.dark,
       'currentRoute': currentRoute,
-      'bridgeVersion': '0.1.4',
+      'bridgeVersion': turboBridgeVersion,
       'locale': binding.platformDispatcher.locale.toString(),
     };
   }
