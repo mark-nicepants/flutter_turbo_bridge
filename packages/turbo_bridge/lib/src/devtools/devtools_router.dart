@@ -60,8 +60,7 @@ class DevToolsRouter {
           headers: {'content-type': 'application/json'});
     }
     if (path == 'api/devtools/network') {
-      final entries =
-          network.snapshot().map((e) => e.toSummaryJson()).toList();
+      final entries = network.snapshot().map((e) => e.toSummaryJson()).toList();
       return Response.ok(jsonEncode({'entries': entries}),
           headers: {'content-type': 'application/json'});
     }
@@ -96,11 +95,13 @@ class DevToolsRouter {
       // a stray LAN browser can't drive the app via DevTools.
       if (request.method != 'GET' &&
           request.headers['x-turbo-devtools'] != '1') {
-        return Response.forbidden(jsonEncode({
-          'error': 'Missing x-turbo-devtools header. '
-              'Mutating DevTools API calls must originate from the '
-              'DevTools UI.',
-        }), headers: {'content-type': 'application/json'});
+        return Response.forbidden(
+            jsonEncode({
+              'error': 'Missing x-turbo-devtools header. '
+                  'Mutating DevTools API calls must originate from the '
+                  'DevTools UI.',
+            }),
+            headers: {'content-type': 'application/json'});
       }
       // Re-issue the request to the main BridgeRouter with the `api/`
       // prefix stripped, so it sees the same paths the JSON-API port does.

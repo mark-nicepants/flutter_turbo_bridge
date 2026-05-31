@@ -17,7 +17,8 @@ void registerRecentLogsTool(McpServer server, TurboBridgeClient client) {
     inputSchema: JsonSchema.object(
       properties: {
         'limit': JsonSchema.integer(
-          description: 'Maximum number of recent entries to return (default 50).',
+          description:
+              'Maximum number of recent entries to return (default 50).',
         ),
         'level': JsonSchema.string(
           description:

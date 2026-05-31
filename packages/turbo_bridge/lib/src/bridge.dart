@@ -217,9 +217,8 @@ class TurboBridge {
         final reqBytes = config.enableDevTools
             ? await _drain(request.read())
             : const <int>[];
-        final replay = config.enableDevTools
-            ? request.change(body: reqBytes)
-            : request;
+        final replay =
+            config.enableDevTools ? request.change(body: reqBytes) : request;
 
         final response = await inner(replay);
 

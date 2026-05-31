@@ -230,8 +230,7 @@ void main() {
       // descendants — verify the box is part of the chain.
       final types = chain.map((n) => n['type'] as String).toList();
       expect(types.where((t) => t == 'SizedBox' || t == 'Text'), isNotEmpty);
-      final hasKey =
-          chain.any((n) => n['key'] == 'target_box');
+      final hasKey = chain.any((n) => n['key'] == 'target_box');
       expect(hasKey, isTrue);
     });
 
