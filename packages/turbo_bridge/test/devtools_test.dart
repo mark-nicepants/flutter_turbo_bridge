@@ -198,8 +198,7 @@ void main() {
     test('LogEntry.toJson omits null optional fields', () {
       final bus = DevToolsEventBus();
       final sink = LogSink(bus: bus);
-      final entry =
-          sink.add(message: 'plain', captureSource: false);
+      final entry = sink.add(message: 'plain', captureSource: false);
       final json = entry.toJson();
       expect(json.containsKey('category'), isFalse);
       expect(json.containsKey('data'), isFalse);
@@ -225,8 +224,7 @@ void main() {
     test('captureSource: false skips the stack-trace scan', () {
       final bus = DevToolsEventBus();
       final sink = LogSink(bus: bus);
-      final entry =
-          sink.add(message: 'nope', captureSource: false);
+      final entry = sink.add(message: 'nope', captureSource: false);
       expect(entry.sourceFile, isNull);
       expect(entry.sourceLine, isNull);
       bus.close();
