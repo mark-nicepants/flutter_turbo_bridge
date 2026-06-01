@@ -65,7 +65,88 @@ interface State {
   // 0 disables retention. Surfaced as a dropdown in the header.
   retentionMs: number;
   modalEvent: TimelineEvent | null;
-  modalTab: 'request' | 'response' | 'timing' | 'curl' | 'raw';
+  modalTab: 'request' | 'response' | 'curl';
+  // Persistent settings — loaded from localStorage on boot, written
+  // back on every change.
+  settings: PersistedSettings;
+  settingsOpen: boolean;
+}
+
+interface PersistedSettings {
+  /** Editor to open `vscode://`-style links with. */
+  ide: IdeKey;
+}
+
+type IdeKey = 'vscode' | 'vscode-insiders' | 'cursor' | 'idea' | 'zed' | 'none';
+
+interface IdeDef {
+  key: IdeKey;
+  label: string;
+  /** Build a URL from an absolute file path + 1-based line/col. Return
+   *  null if this IDE can't handle the given path (e.g. `package:`). */
+  buildUrl: (absolutePath: string, line: number, col: number) => string | null;
+}
+
+const IDES: IdeDef[] = [
+  {
+    key: 'vscode',
+    label: 'VS Code',
+    buildUrl: (p, l, c) => `vscode://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'vscode-insiders',
+    label: 'VS Code Insiders',
+    buildUrl: (p, l, c) => `vscode-insiders://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'cursor',
+    label: 'Cursor',
+    buildUrl: (p, l, c) => `cursor://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'idea',
+    label: 'IntelliJ IDEA / WebStorm / Android Studio',
+    // JetBrains IDEs (idea, webstorm, pycharm, android-studio, …) all
+    // accept this query-string format via the built-in `idea://` URL
+    // handler that ships with the Toolbox helper.
+    buildUrl: (p, l, c) =>
+      `idea://open?file=${encodeURIComponent(p)}&line=${l}&column=${c}`,
+  },
+  {
+    key: 'zed',
+    label: 'Zed',
+    buildUrl: (p, l, c) => `zed://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'none',
+    label: 'No deep link (copy path only)',
+    buildUrl: () => null,
+  },
+];
+
+const SETTINGS_STORAGE_KEY = 'turbo_bridge_devtools_settings_v1';
+
+function loadSettings(): PersistedSettings {
+  const fallback: PersistedSettings = { ide: 'vscode' };
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
+    const ide = parsed.ide && IDES.some((i) => i.key === parsed.ide)
+      ? (parsed.ide as IdeKey)
+      : fallback.ide;
+    return { ide };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveSettings(s: PersistedSettings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(s));
+  } catch {
+    // private browsing / quota — silently ignore.
+  }
 }
 
 const DEFAULT_WINDOW_MS = 10_000;
@@ -90,7 +171,9 @@ const state: State = {
   follow: true,
   retentionMs: 30_000,
   modalEvent: null,
-  modalTab: 'response',
+  modalTab: 'request',
+  settings: loadSettings(),
+  settingsOpen: false,
 };
 
 // ============================================================
@@ -111,6 +194,14 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 function fmtAbs(ms: number): string {
   if (!Number.isFinite(ms)) return '—';
   return new Date(ms).toLocaleTimeString();
+}
+
+// Same as `fmtAbs` but with the millisecond suffix so timestamps in
+// the event list can be ordered visually within a single second.
+function fmtAbsMs(ms: number): string {
+  if (!Number.isFinite(ms)) return '—';
+  const d = new Date(ms);
+  return `${d.toLocaleTimeString()}.${`${d.getMilliseconds()}`.padStart(3, '0')}`;
 }
 
 function fmtAxisTime(t: number, wDur: number): string {
@@ -288,6 +379,9 @@ interface UI {
   // Modal lives in a separate layer (overlay div); show/hide instead of
   // recreating each update.
   modalLayerEl: HTMLElement;
+
+  // Settings popup layer — anchored top-right under the gear.
+  settingsLayerEl: HTMLElement;
 }
 
 let ui: UI | null = null;
@@ -385,6 +479,20 @@ function mount(root: HTMLElement) {
     ? '<span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>mock device'
     : '<span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>live';
   headerEl.appendChild(indicator);
+
+  // Gear button — opens the settings popup.
+  const gearBtn = el(
+    'button',
+    'shrink-0 text-zinc-500 hover:text-zinc-200 rounded-md p-1.5 ring-1 ring-transparent hover:ring-zinc-700 transition-colors',
+    '<svg viewBox="0 0 16 16" class="size-4"><path fill="currentColor" d="M8 2a1 1 0 011 1v.6a4.5 4.5 0 011.7.7l.5-.3a1 1 0 011.3.4l.5.9a1 1 0 01-.4 1.3l-.5.3a4.5 4.5 0 010 2l.5.3a1 1 0 01.4 1.3l-.5.9a1 1 0 01-1.3.4l-.5-.3a4.5 4.5 0 01-1.7.7V13a1 1 0 11-2 0v-.6a4.5 4.5 0 01-1.7-.7l-.5.3a1 1 0 01-1.3-.4l-.5-.9a1 1 0 01.4-1.3l.5-.3a4.5 4.5 0 010-2l-.5-.3a1 1 0 01-.4-1.3l.5-.9a1 1 0 011.3-.4l.5.3a4.5 4.5 0 011.7-.7V3a1 1 0 011-1zm0 4a2 2 0 100 4 2 2 0 000-4z"/></svg>',
+  ) as HTMLButtonElement;
+  gearBtn.title = 'Settings';
+  gearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.settingsOpen = !state.settingsOpen;
+    scheduleUpdate();
+  });
+  headerEl.appendChild(gearBtn);
 
   root.appendChild(headerEl);
 
@@ -494,6 +602,9 @@ function mount(root: HTMLElement) {
   const modalLayerEl = el('div', 'hidden');
   root.appendChild(modalLayerEl);
 
+  const settingsLayerEl = el('div', 'hidden');
+  root.appendChild(settingsLayerEl);
+
   ui = {
     root,
     header: {
@@ -516,6 +627,7 @@ function mount(root: HTMLElement) {
     eventListEmptyEl,
     eventRowsById: new Map(),
     modalLayerEl,
+    settingsLayerEl,
   };
 }
 
@@ -541,6 +653,7 @@ function update() {
   updateMinimap();
   updateEventList();
   updateModal();
+  updateSettings();
 }
 
 // ---------- Header ----------
@@ -933,13 +1046,13 @@ function buildEventRow(ev: TimelineEvent): HTMLElement {
     'button',
     'w-full text-left px-4 h-9 grid items-center gap-3 text-sm cursor-pointer transition-colors hover:bg-zinc-900/60',
   );
-  row.style.gridTemplateColumns = '90px 90px 70px minmax(0, 1fr)';
+  row.style.gridTemplateColumns = '130px 90px 70px minmax(0, 1fr)';
   row.addEventListener('click', () => openModal(ev));
   row.appendChild(
     el(
       'div',
-      'font-mono text-[11px] text-zinc-500 whitespace-nowrap',
-      fmtAbs(ev.timestamp),
+      'font-mono text-[11px] text-zinc-500 whitespace-nowrap tabular-nums',
+      fmtAbsMs(ev.timestamp),
     ),
   );
   row.appendChild(
@@ -987,16 +1100,18 @@ function updateModal() {
 }
 
 function renderModal(ev: TimelineEvent): HTMLElement {
+  // Anchor at a fixed top offset so switching tabs doesn't shift the
+  // tab strip around. Content grows downward.
   const backdrop = el(
     'div',
-    'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
+    'fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-16',
   );
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) closeModal();
   });
   const card = el(
     'div',
-    'w-[min(960px,92vw)] max-h-[88vh] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl flex flex-col overflow-hidden',
+    'w-[min(1040px,92vw)] max-h-[calc(100vh-6rem)] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl flex flex-col overflow-hidden',
   );
   card.appendChild(renderModalHeader(ev));
   card.appendChild(renderModalBody(ev));
@@ -1083,8 +1198,98 @@ function renderModalHeader(ev: TimelineEvent): HTMLElement {
 
 function renderModalBody(ev: TimelineEvent): HTMLElement {
   if (isHttpEvent(ev)) return renderNetworkBody(ev);
-  const wrap = el('div', 'flex-1 min-h-0 overflow-auto p-4 bg-zinc-950');
+  const wrap = el(
+    'div',
+    'flex-1 min-h-0 overflow-auto p-4 bg-zinc-950 space-y-4',
+  );
+  const link = renderSourceLink(ev.raw);
+  if (link) wrap.appendChild(link);
   wrap.appendChild(renderJsonBlock(ev.raw));
+  return wrap;
+}
+
+/// Render the call-site link on a log event. ⌘-click opens the
+/// configured editor (settings popup, top-right). Falls back to a
+/// plain "copy path" button when:
+/// - the source is a `package:` URI (we'd need pubspec resolution to
+///   turn it into an absolute file path)
+/// - the user selected "No deep link"
+function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
+  const file = raw['sourceFile'];
+  const line = raw['sourceLine'];
+  if (typeof file !== 'string' || typeof line !== 'number') return null;
+  const col = typeof raw['sourceColumn'] === 'number' ? raw['sourceColumn'] : 1;
+
+  // Resolve to an absolute path for IDE deep links. `file:///abs/path`
+  // → `/abs/path`; `package:foo/bar.dart` can't be resolved here so we
+  // skip the deep link and show the path verbatim.
+  let absPath: string | null = null;
+  let displayPath = file;
+  if (file.startsWith('file:///')) {
+    absPath = '/' + file.slice('file:///'.length);
+    displayPath = absPath;
+  } else if (file.startsWith('file://')) {
+    absPath = file.slice('file://'.length);
+    displayPath = absPath;
+  }
+
+  const segments = displayPath.split('/');
+  const short = segments.slice(-2).join('/');
+
+  // Resolve the active IDE's URL builder; may return null for paths
+  // the IDE can't handle.
+  const ide = IDES.find((i) => i.key === state.settings.ide) ?? IDES[0]!;
+  const href = absPath ? ide.buildUrl(absPath, line, col) : null;
+
+  const wrap = el('div', 'flex items-center gap-3 text-xs');
+  wrap.appendChild(
+    el(
+      'span',
+      'text-[10px] uppercase tracking-wider text-zinc-500',
+      'source',
+    ),
+  );
+
+  if (href) {
+    const a = el(
+      'a',
+      'font-mono text-cyan-300 hover:text-cyan-200 underline decoration-cyan-700 underline-offset-2 truncate',
+      `${escapeHtml(short)}:${line}:${col}`,
+    ) as HTMLAnchorElement;
+    a.href = href;
+    a.title = `${file}:${line}:${col} — ⌘-click to open in ${ide.label}`;
+    wrap.appendChild(a);
+  } else {
+    const span = el(
+      'span',
+      'font-mono text-zinc-300 truncate',
+      `${escapeHtml(short)}:${line}:${col}`,
+    );
+    span.title = file.startsWith('package:')
+      ? `${file}:${line}:${col} — package: URIs can't be opened directly. Use "copy path" or switch IDE in settings.`
+      : `${file}:${line}:${col}`;
+    wrap.appendChild(span);
+  }
+
+  const copyTarget =
+    absPath != null ? `${absPath}:${line}:${col}` : `${file}:${line}:${col}`;
+  const copyBtn = el(
+    'button',
+    'text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
+    'copy path',
+  );
+  copyBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(copyTarget);
+      copyBtn.textContent = 'copied!';
+      setTimeout(() => (copyBtn.textContent = 'copy path'), 1200);
+    } catch {
+      copyBtn.textContent = 'copy failed';
+    }
+  });
+  wrap.appendChild(copyBtn);
   return wrap;
 }
 
@@ -1094,7 +1299,7 @@ function renderNetworkBody(ev: TimelineEvent): HTMLElement {
     'nav',
     'flex items-center gap-1 px-3 border-b border-zinc-800 bg-zinc-900/40',
   );
-  (['response', 'request', 'timing', 'curl', 'raw'] as const).forEach((t) =>
+  (['request', 'response', 'curl'] as const).forEach((t) =>
     tabs.appendChild(modalTab(t)),
   );
   wrap.appendChild(tabs);
@@ -1107,25 +1312,15 @@ function renderNetworkBody(ev: TimelineEvent): HTMLElement {
     case 'response':
       body.appendChild(renderResponseSection(ev.raw));
       break;
-    case 'timing':
-      body.appendChild(renderTimingSection(ev));
-      break;
     case 'curl':
       body.appendChild(renderCurlSection(ev.raw));
-      break;
-    case 'raw':
-      body.appendChild(
-        el('div', 'p-4').appendChild(renderJsonBlock(ev.raw)).parentElement!,
-      );
       break;
   }
   wrap.appendChild(body);
   return wrap;
 }
 
-function modalTab(
-  t: 'request' | 'response' | 'timing' | 'curl' | 'raw',
-): HTMLElement {
+function modalTab(t: 'request' | 'response' | 'curl'): HTMLElement {
   const active = state.modalTab === t;
   const cap = t[0]!.toUpperCase() + t.slice(1);
   const btn = el(
@@ -1185,36 +1380,6 @@ function renderResponseSection(raw: Record<string, unknown>): HTMLElement {
   return wrap;
 }
 
-function renderTimingSection(ev: TimelineEvent): HTMLElement {
-  const wrap = el('div', 'p-4 space-y-4 text-sm');
-  const total = ev.durationMs ?? 0;
-  const rows = [
-    ['Total', `${total} ms`],
-    ['Started', new Date(ev.timestamp).toISOString()],
-    ['Finished', new Date(ev.timestamp + total).toISOString()],
-  ];
-  const tbl = el(
-    'div',
-    'rounded-md ring-1 ring-zinc-800 divide-y divide-zinc-800 bg-zinc-900/30 font-mono text-xs',
-  );
-  for (const [k, v] of rows) {
-    const r = el('div', 'flex items-center gap-4 px-3 py-2');
-    r.appendChild(el('div', 'w-24 text-zinc-500', k));
-    r.appendChild(el('div', 'text-zinc-100 truncate', escapeHtml(v)));
-    tbl.appendChild(r);
-  }
-  wrap.appendChild(tbl);
-  const bar = el(
-    'div',
-    'h-6 rounded bg-zinc-900 ring-1 ring-zinc-800 relative overflow-hidden',
-  );
-  const fill = el('div', 'absolute inset-y-0 bg-cyan-500/40 border-r border-cyan-400');
-  fill.style.width = '100%';
-  bar.appendChild(fill);
-  wrap.appendChild(bar);
-  return wrap;
-}
-
 function buildCurlCommand(raw: Record<string, unknown>): string {
   const method = ((raw['method'] as string | undefined) ?? 'GET').toUpperCase();
   const url =
@@ -1240,8 +1405,8 @@ function maskHeaderValue(name: string, value: string): string {
   const lower = name.toLowerCase();
   if (lower === 'authorization') {
     const m = value.match(/^(Bearer|Basic|Digest|Token)\s+(.+)$/i);
-    if (m) return `${m[1]} ##TOKEN##`;
-    return '##TOKEN##';
+    if (m) return `${m[1]} {{token}}`;
+    return '{{token}}';
   }
   if (lower === 'cookie' || lower === 'set-cookie') {
     return value
@@ -1250,12 +1415,12 @@ function maskHeaderValue(name: string, value: string): string {
         const eq = part.indexOf('=');
         if (eq < 0) return part;
         const key = part.slice(0, eq).trim();
-        return `${key}=##VALUE##`;
+        return `${key}={{value}}`;
       })
       .join('; ');
   }
   if (lower === 'x-api-key' || lower.endsWith('-api-key') || lower.endsWith('-token')) {
-    return '##TOKEN##';
+    return '{{token}}';
   }
   return value;
 }
@@ -1266,38 +1431,8 @@ function shellQuote(s: string): string {
 }
 
 function renderCurlSection(raw: Record<string, unknown>): HTMLElement {
-  const wrap = el('div', 'p-4 space-y-3');
-  wrap.appendChild(
-    el(
-      'div',
-      'flex items-center gap-2 text-[10px] uppercase tracking-wider text-zinc-500',
-      'Authorization headers, cookies, and *-api-key / *-token headers are masked with <span class="font-mono text-zinc-300">##TOKEN##</span>.',
-    ),
-  );
-
-  const cmd = buildCurlCommand(raw);
-  const codeBlock = el(
-    'pre',
-    'rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto max-h-[50vh] whitespace-pre-wrap break-all relative',
-  );
-  codeBlock.appendChild(document.createTextNode(cmd));
-
-  const copyBtn = el(
-    'button',
-    'absolute top-2 right-2 text-[10px] uppercase tracking-wider px-2 py-1 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
-    'copy',
-  );
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(cmd);
-      copyBtn.textContent = 'copied!';
-      setTimeout(() => (copyBtn.textContent = 'copy'), 1200);
-    } catch {
-      copyBtn.textContent = 'copy failed';
-    }
-  });
-  codeBlock.appendChild(copyBtn);
-  wrap.appendChild(codeBlock);
+  const wrap = el('div', 'p-4');
+  wrap.appendChild(copyableCodeBlock(buildCurlCommand(raw)));
   return wrap;
 }
 
@@ -1322,18 +1457,100 @@ function renderBodyBlock(body: string | undefined): HTMLElement {
   if (!body) return el('div', 'text-zinc-500 text-xs', '<em>(empty)</em>');
   const t = body.trim();
   let text = body;
-  if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+  let isJson = false;
+  if (
+    (t.startsWith('{') && t.endsWith('}')) ||
+    (t.startsWith('[') && t.endsWith(']'))
+  ) {
     try {
       text = JSON.stringify(JSON.parse(t), null, 2);
+      isJson = true;
     } catch {
       // leave as-is
     }
   }
-  return el(
+  return copyableCodeBlock(text, { html: isJson ? highlightJson(text) : null });
+}
+
+// Generic "code block with a copy button in the corner". When `html`
+// is provided it's used as the rendered (already escaped) markup;
+// otherwise we escape `text` ourselves. The copy button always copies
+// the raw `text`.
+function copyableCodeBlock(
+  text: string,
+  opts: { html?: string | null; maxHeight?: string } = {},
+): HTMLElement {
+  const pre = el(
     'pre',
-    'rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto max-h-[50vh] whitespace-pre-wrap break-all',
-    escapeHtml(text),
+    [
+      'relative rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto whitespace-pre-wrap break-all',
+      opts.maxHeight ? '' : 'max-h-[60vh]',
+    ].join(' '),
   );
+  if (opts.maxHeight) pre.style.maxHeight = opts.maxHeight;
+  const code = el('code', 'block pr-12');
+  if (opts.html != null) {
+    code.innerHTML = opts.html;
+  } else {
+    code.textContent = text;
+  }
+  pre.appendChild(code);
+  pre.appendChild(buildCopyButton(text));
+  return pre;
+}
+
+function buildCopyButton(text: string): HTMLElement {
+  const btn = el(
+    'button',
+    'absolute top-2 right-2 text-[10px] uppercase tracking-wider px-2 py-1 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
+    'copy',
+  );
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = 'copied!';
+      setTimeout(() => (btn.textContent = 'copy'), 1200);
+    } catch {
+      btn.textContent = 'copy failed';
+    }
+  });
+  return btn;
+}
+
+// ---------- JSON syntax highlighting -----------------------------------
+// Tiny tokenizer that wraps strings / numbers / booleans / null / keys
+// in colored spans. Operates on already-pretty-printed JSON text.
+//
+// Important: we tokenize the *raw* JSON (where quotes are still ASCII
+// double-quotes), then escape *each token's text* exactly once on the
+// way into HTML. Earlier versions escaped the whole string up front
+// and then re-escaped inside the replacer, which double-encoded any
+// `&` / `<` / `>` inside string values.
+function highlightJson(src: string): string {
+  const re =
+    /("(?:[^"\\]|\\.)*"\s*:)|("(?:[^"\\]|\\.)*")|(\b-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)/g;
+  let out = '';
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    // Plain text between tokens — escape once.
+    if (m.index > lastIdx) {
+      out += escapeHtml(src.slice(lastIdx, m.index));
+    }
+    let cls = '';
+    if (m[1]) cls = 'text-cyan-300';
+    else if (m[2]) cls = 'text-emerald-300';
+    else if (m[3]) cls = 'text-amber-300';
+    else if (m[4]) cls = 'text-sky-400 font-semibold';
+    else if (m[5]) cls = 'text-zinc-500 italic';
+    out += `<span class="${cls}">${escapeHtml(m[0])}</span>`;
+    lastIdx = re.lastIndex;
+  }
+  if (lastIdx < src.length) {
+    out += escapeHtml(src.slice(lastIdx));
+  }
+  return out;
 }
 
 function sectionTitle(title: string, hint: string): HTMLElement {
@@ -1346,16 +1563,124 @@ function sectionTitle(title: string, hint: string): HTMLElement {
 }
 
 function renderJsonBlock(obj: unknown): HTMLElement {
-  return el(
-    'pre',
-    'rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto max-h-[60vh]',
-    escapeHtml(JSON.stringify(obj, null, 2)),
+  const text = JSON.stringify(obj, null, 2);
+  return copyableCodeBlock(text, { html: highlightJson(text) });
+}
+
+// ---------- Settings popup ----------
+//
+// The popup contains a native <select>. Rebuilding it on every tick
+// would close the user's open dropdown out from under them — so we
+// build the popup DOM exactly once (lazily, on first open) and after
+// that only toggle visibility. See `devtools_ui/AGENTS.md` for the
+// general rule.
+
+function updateSettings() {
+  const layer = ui!.settingsLayerEl;
+  if (!state.settingsOpen) {
+    layer.classList.add('hidden');
+    return;
+  }
+  if (layer.children.length === 0) {
+    layer.appendChild(renderSettings());
+  }
+  layer.classList.remove('hidden');
+}
+
+function renderSettings(): HTMLElement {
+  const backdrop = el(
+    'div',
+    'fixed inset-0 z-40 cursor-default',
   );
+  backdrop.addEventListener('click', () => {
+    state.settingsOpen = false;
+    scheduleUpdate();
+  });
+
+  const panel = el(
+    'div',
+    'absolute top-12 right-3 z-50 w-[min(360px,calc(100vw-1.5rem))] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl p-4',
+  );
+  panel.addEventListener('click', (e) => e.stopPropagation());
+
+  const header = el(
+    'div',
+    'flex items-center justify-between mb-3',
+  );
+  header.appendChild(
+    el(
+      'h3',
+      'text-[11px] uppercase tracking-wider text-zinc-400 font-semibold',
+      'Settings',
+    ),
+  );
+  const closeBtn = el(
+    'button',
+    'text-zinc-500 hover:text-zinc-200 rounded-md p-1 -mr-1',
+    '<svg viewBox="0 0 16 16" class="size-3.5"><path fill="currentColor" d="M4.3 3.3a1 1 0 011.4 0L8 5.6l2.3-2.3a1 1 0 111.4 1.4L9.4 7l2.3 2.3a1 1 0 11-1.4 1.4L8 8.4 5.7 10.7a1 1 0 01-1.4-1.4L6.6 7 4.3 4.7a1 1 0 010-1.4z"/></svg>',
+  );
+  closeBtn.addEventListener('click', () => {
+    state.settingsOpen = false;
+    scheduleUpdate();
+  });
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  // IDE picker.
+  panel.appendChild(
+    el(
+      'label',
+      'block text-[11px] uppercase tracking-wider text-zinc-500 mb-1.5',
+      'Open source links with',
+    ),
+  );
+
+  // The native <select>'s chevron sits flush against the right edge
+  // (and is differently placed on every platform). Wrap it so we can
+  // hide the native chevron via `appearance-none` and overlay our own
+  // at a controlled offset.
+  const selectWrap = el('div', 'relative');
+  const select = el(
+    'select',
+    'appearance-none w-full h-9 pl-3 pr-9 rounded-md ring-1 ring-zinc-700 bg-zinc-900 text-zinc-200 text-sm hover:ring-zinc-500 focus:outline-none focus:ring-zinc-400 cursor-pointer truncate',
+  ) as HTMLSelectElement;
+  for (const ide of IDES) {
+    const o = document.createElement('option');
+    o.value = ide.key;
+    o.textContent = ide.label;
+    if (ide.key === state.settings.ide) o.selected = true;
+    select.appendChild(o);
+  }
+  select.addEventListener('change', () => {
+    state.settings.ide = select.value as IdeKey;
+    saveSettings(state.settings);
+    scheduleUpdate();
+  });
+  selectWrap.appendChild(select);
+  selectWrap.appendChild(
+    el(
+      'span',
+      'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500',
+      '<svg viewBox="0 0 16 16" class="size-3.5"><path fill="currentColor" d="M3.7 5.7a1 1 0 011.4 0L8 8.6l2.9-2.9a1 1 0 111.4 1.4l-3.6 3.6a1 1 0 01-1.4 0L3.7 7.1a1 1 0 010-1.4z"/></svg>',
+    ),
+  );
+  panel.appendChild(selectWrap);
+
+  panel.appendChild(
+    el(
+      'p',
+      'mt-2 text-[11px] text-zinc-500 leading-relaxed',
+      'Click a source link in a log entry to ⌘-click into the chosen editor. Setting is saved in this browser.',
+    ),
+  );
+
+  backdrop.appendChild(panel);
+  return backdrop;
 }
 
 function openModal(ev: TimelineEvent) {
   state.modalEvent = ev;
-  state.modalTab = isHttpEvent(ev) ? 'response' : 'raw';
+  state.modalTab = 'request';
   scheduleUpdate();
   // The list / SSE payload is a summary — headers + body live behind a
   // detail endpoint. Fetch them lazily so the Response / Request / Curl
@@ -1471,7 +1796,13 @@ window.addEventListener('mouseup', () => {
 });
 
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.modalEvent) closeModal();
+  if (e.key !== 'Escape') return;
+  if (state.modalEvent) {
+    closeModal();
+  } else if (state.settingsOpen) {
+    state.settingsOpen = false;
+    scheduleUpdate();
+  }
 });
 
 // ============================================================
