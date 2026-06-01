@@ -237,8 +237,35 @@ function fullRange(): { min: number; max: number } {
 
 function maybeFollow() {
   if (!state.follow) return;
-  const { max } = fullRange();
-  state.windowStart = max - state.windowDuration;
+  // Use wall-clock "now" rather than the timestamp of the latest event,
+  // so the window keeps gliding even when nothing is happening. The
+  // follow ticker (`ensureFollowTicker`) keeps this updating between
+  // events; this call covers the path where new events trigger upsert().
+  state.windowStart = Date.now() - state.windowDuration;
+  ensureFollowTicker();
+}
+
+// Smooth follow ticker: while `state.follow` is true, advance the
+// window every ~33ms (≈30fps) so the right edge stays pinned to "now"
+// even when no new events are arriving. Self-stops once follow flips
+// off, restarts whenever maybeFollow runs.
+let followRafId = 0;
+let lastFollowFrame = 0;
+const FOLLOW_TICK_MS = 33;
+function tickFollow(t: number) {
+  followRafId = 0;
+  if (!state.follow) return;
+  if (t - lastFollowFrame >= FOLLOW_TICK_MS) {
+    lastFollowFrame = t;
+    state.windowStart = Date.now() - state.windowDuration;
+    scheduleUpdate();
+  }
+  followRafId = requestAnimationFrame(tickFollow);
+}
+function ensureFollowTicker() {
+  if (followRafId || !state.follow) return;
+  lastFollowFrame = 0;
+  followRafId = requestAnimationFrame(tickFollow);
 }
 
 function windowEnd(): number {
@@ -1902,6 +1929,7 @@ function boot() {
   update();
   void loadInitial();
   connectEvents();
+  ensureFollowTicker();
 }
 
 if (document.readyState === 'loading') {

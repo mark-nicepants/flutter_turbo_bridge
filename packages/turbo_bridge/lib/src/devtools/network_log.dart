@@ -79,6 +79,36 @@ class NetworkLog {
     return null;
   }
 
+  /// Mark the start of a network call. Returns a handle to call
+  /// `complete()` or `fail()` on when the response arrives.
+  ///
+  /// Today this only buffers the request fields; the entry doesn't
+  /// appear in the timeline until you call `complete()` (or `fail()`).
+  /// See `docs/INFLIGHT_NETWORK_PLAN.md` for the planned evolution to
+  /// also surface in-flight requests in the DevTools timeline.
+  ///
+  /// Use this in HTTP interceptors (Dio, http_interceptor, GraphQL
+  /// clients) so request/response correlation is automatic and the
+  /// recorded `durationMs` matches the real wall-clock time spent.
+  InFlightNetworkCall start({
+    required String method,
+    required String url,
+    Map<String, String>? requestHeaders,
+    String? requestBody,
+    int? requestBodySize,
+    DateTime? timestamp,
+  }) {
+    return InFlightNetworkCall._(
+      log: this,
+      method: method,
+      url: url,
+      requestHeaders: requestHeaders,
+      requestBody: requestBody,
+      requestBodySize: requestBodySize ?? requestBody?.length,
+      startedAt: timestamp ?? DateTime.now(),
+    );
+  }
+
   /// Record a completed (or failed) network call.
   ///
   /// Apps that want streaming updates (request started, then completed)
@@ -122,4 +152,87 @@ class NetworkLog {
   }
 
   void clear() => _entries.clear();
+}
+
+/// Handle returned by `NetworkLog.start`. Call exactly one of
+/// `complete`, `fail`, or `cancel`. Subsequent calls are no-ops, so
+/// the same handle is safe to share with both response and error
+/// hooks of an HTTP client.
+class InFlightNetworkCall {
+  final NetworkLog _log;
+  final String _method;
+  final String _url;
+  final Map<String, String>? _requestHeaders;
+  final String? _requestBody;
+  final int? _requestBodySize;
+  final DateTime _startedAt;
+  bool _done = false;
+
+  InFlightNetworkCall._({
+    required NetworkLog log,
+    required String method,
+    required String url,
+    required Map<String, String>? requestHeaders,
+    required String? requestBody,
+    required int? requestBodySize,
+    required DateTime startedAt,
+  })  : _log = log,
+        _method = method,
+        _url = url,
+        _requestHeaders = requestHeaders,
+        _requestBody = requestBody,
+        _requestBodySize = requestBodySize,
+        _startedAt = startedAt;
+
+  /// Whether this call has been finalized (completed, failed, or cancelled).
+  bool get isDone => _done;
+
+  /// Record the response and finalize.
+  void complete({
+    int? status,
+    Map<String, String>? responseHeaders,
+    String? responseBody,
+    int? responseBodySize,
+  }) {
+    if (_done) return;
+    _done = true;
+    final endedAt = DateTime.now();
+    _log.record(
+      method: _method,
+      url: _url,
+      requestHeaders: _requestHeaders,
+      requestBody: _requestBody,
+      requestBodySize: _requestBodySize,
+      status: status,
+      responseHeaders: responseHeaders,
+      responseBody: responseBody,
+      responseBodySize: responseBodySize,
+      durationMs: endedAt.difference(_startedAt).inMilliseconds,
+      timestamp: _startedAt,
+    );
+  }
+
+  /// Record a failed request (network error, timeout, etc) and finalize.
+  void fail(Object error, {int? status}) {
+    if (_done) return;
+    _done = true;
+    final endedAt = DateTime.now();
+    _log.record(
+      method: _method,
+      url: _url,
+      requestHeaders: _requestHeaders,
+      requestBody: _requestBody,
+      requestBodySize: _requestBodySize,
+      status: status,
+      durationMs: endedAt.difference(_startedAt).inMilliseconds,
+      error: error,
+      timestamp: _startedAt,
+    );
+  }
+
+  /// Drop the in-flight call without recording anything. Useful when
+  /// the host app decides the request shouldn't be logged after all.
+  void cancel() {
+    _done = true;
+  }
 }

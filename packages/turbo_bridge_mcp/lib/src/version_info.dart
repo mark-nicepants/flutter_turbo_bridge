@@ -1,4 +1,4 @@
-const String turboBridgeMcpVersion = '0.1.5';
+const String turboBridgeMcpVersion = '0.1.6';
 
 Map<String, dynamic> buildMcpCompatibilityInfo({
   required String bridgeVersion,

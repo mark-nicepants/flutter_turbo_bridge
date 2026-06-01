@@ -320,6 +320,64 @@ void main() {
       bus.close();
     });
 
+    test('start/complete records duration from the start timestamp',
+        () async {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus);
+      final inflight = net.start(
+        method: 'POST',
+        url: 'https://api.example.com/items',
+        requestHeaders: {'content-type': 'application/json'},
+        requestBody: '{"name":"a"}',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 15));
+      inflight.complete(
+        status: 201,
+        responseHeaders: {'content-type': 'application/json'},
+        responseBody: '{"id":1}',
+      );
+      final calls = net.snapshot();
+      expect(calls, hasLength(1));
+      final call = calls.single;
+      expect(call.method, 'POST');
+      expect(call.status, 201);
+      expect(call.requestBody, '{"name":"a"}');
+      expect(call.responseBody, '{"id":1}');
+      expect(call.durationMs!, greaterThanOrEqualTo(15));
+      bus.close();
+    });
+
+    test('start/complete is idempotent', () {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus);
+      final inflight = net.start(method: 'GET', url: 'x');
+      inflight.complete(status: 200);
+      inflight.complete(status: 500); // ignored
+      inflight.fail(Exception('also ignored'));
+      expect(net.snapshot(), hasLength(1));
+      expect(net.snapshot().single.status, 200);
+      expect(inflight.isDone, isTrue);
+      bus.close();
+    });
+
+    test('start + fail records the error', () {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus);
+      final inflight = net.start(method: 'GET', url: 'x');
+      inflight.fail(Exception('boom'));
+      expect(net.snapshot().single.error, contains('boom'));
+      bus.close();
+    });
+
+    test('start + cancel drops the entry', () {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus);
+      final inflight = net.start(method: 'GET', url: 'x');
+      inflight.cancel();
+      expect(net.snapshot(), isEmpty);
+      bus.close();
+    });
+
     test('NetworkCall.toDetailJson includes optional fields', () {
       final bus = DevToolsEventBus();
       final net = NetworkLog(bus: bus);
