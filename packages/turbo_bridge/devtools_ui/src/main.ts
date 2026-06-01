@@ -66,6 +66,87 @@ interface State {
   retentionMs: number;
   modalEvent: TimelineEvent | null;
   modalTab: 'request' | 'response' | 'curl';
+  // Persistent settings — loaded from localStorage on boot, written
+  // back on every change.
+  settings: PersistedSettings;
+  settingsOpen: boolean;
+}
+
+interface PersistedSettings {
+  /** Editor to open `vscode://`-style links with. */
+  ide: IdeKey;
+}
+
+type IdeKey = 'vscode' | 'vscode-insiders' | 'cursor' | 'idea' | 'zed' | 'none';
+
+interface IdeDef {
+  key: IdeKey;
+  label: string;
+  /** Build a URL from an absolute file path + 1-based line/col. Return
+   *  null if this IDE can't handle the given path (e.g. `package:`). */
+  buildUrl: (absolutePath: string, line: number, col: number) => string | null;
+}
+
+const IDES: IdeDef[] = [
+  {
+    key: 'vscode',
+    label: 'VS Code',
+    buildUrl: (p, l, c) => `vscode://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'vscode-insiders',
+    label: 'VS Code Insiders',
+    buildUrl: (p, l, c) => `vscode-insiders://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'cursor',
+    label: 'Cursor',
+    buildUrl: (p, l, c) => `cursor://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'idea',
+    label: 'IntelliJ IDEA / WebStorm / Android Studio',
+    // JetBrains IDEs (idea, webstorm, pycharm, android-studio, …) all
+    // accept this query-string format via the built-in `idea://` URL
+    // handler that ships with the Toolbox helper.
+    buildUrl: (p, l, c) =>
+      `idea://open?file=${encodeURIComponent(p)}&line=${l}&column=${c}`,
+  },
+  {
+    key: 'zed',
+    label: 'Zed',
+    buildUrl: (p, l, c) => `zed://file${p}:${l}:${c}`,
+  },
+  {
+    key: 'none',
+    label: 'No deep link (copy path only)',
+    buildUrl: () => null,
+  },
+];
+
+const SETTINGS_STORAGE_KEY = 'turbo_bridge_devtools_settings_v1';
+
+function loadSettings(): PersistedSettings {
+  const fallback: PersistedSettings = { ide: 'vscode' };
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
+    const ide = parsed.ide && IDES.some((i) => i.key === parsed.ide)
+      ? (parsed.ide as IdeKey)
+      : fallback.ide;
+    return { ide };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveSettings(s: PersistedSettings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(s));
+  } catch {
+    // private browsing / quota — silently ignore.
+  }
 }
 
 const DEFAULT_WINDOW_MS = 10_000;
@@ -91,6 +172,8 @@ const state: State = {
   retentionMs: 30_000,
   modalEvent: null,
   modalTab: 'request',
+  settings: loadSettings(),
+  settingsOpen: false,
 };
 
 // ============================================================
@@ -296,6 +379,9 @@ interface UI {
   // Modal lives in a separate layer (overlay div); show/hide instead of
   // recreating each update.
   modalLayerEl: HTMLElement;
+
+  // Settings popup layer — anchored top-right under the gear.
+  settingsLayerEl: HTMLElement;
 }
 
 let ui: UI | null = null;
@@ -393,6 +479,20 @@ function mount(root: HTMLElement) {
     ? '<span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>mock device'
     : '<span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>live';
   headerEl.appendChild(indicator);
+
+  // Gear button — opens the settings popup.
+  const gearBtn = el(
+    'button',
+    'shrink-0 text-zinc-500 hover:text-zinc-200 rounded-md p-1.5 ring-1 ring-transparent hover:ring-zinc-700 transition-colors',
+    '<svg viewBox="0 0 16 16" class="size-4"><path fill="currentColor" d="M8 2a1 1 0 011 1v.6a4.5 4.5 0 011.7.7l.5-.3a1 1 0 011.3.4l.5.9a1 1 0 01-.4 1.3l-.5.3a4.5 4.5 0 010 2l.5.3a1 1 0 01.4 1.3l-.5.9a1 1 0 01-1.3.4l-.5-.3a4.5 4.5 0 01-1.7.7V13a1 1 0 11-2 0v-.6a4.5 4.5 0 01-1.7-.7l-.5.3a1 1 0 01-1.3-.4l-.5-.9a1 1 0 01.4-1.3l.5-.3a4.5 4.5 0 010-2l-.5-.3a1 1 0 01-.4-1.3l.5-.9a1 1 0 011.3-.4l.5.3a4.5 4.5 0 011.7-.7V3a1 1 0 011-1zm0 4a2 2 0 100 4 2 2 0 000-4z"/></svg>',
+  ) as HTMLButtonElement;
+  gearBtn.title = 'Settings';
+  gearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.settingsOpen = !state.settingsOpen;
+    scheduleUpdate();
+  });
+  headerEl.appendChild(gearBtn);
 
   root.appendChild(headerEl);
 
@@ -502,6 +602,9 @@ function mount(root: HTMLElement) {
   const modalLayerEl = el('div', 'hidden');
   root.appendChild(modalLayerEl);
 
+  const settingsLayerEl = el('div', 'hidden');
+  root.appendChild(settingsLayerEl);
+
   ui = {
     root,
     header: {
@@ -524,6 +627,7 @@ function mount(root: HTMLElement) {
     eventListEmptyEl,
     eventRowsById: new Map(),
     modalLayerEl,
+    settingsLayerEl,
   };
 }
 
@@ -549,6 +653,7 @@ function update() {
   updateMinimap();
   updateEventList();
   updateModal();
+  updateSettings();
 }
 
 // ---------- Header ----------
@@ -1103,30 +1208,40 @@ function renderModalBody(ev: TimelineEvent): HTMLElement {
   return wrap;
 }
 
-/// Render the call-site link on a log event. Cmd-click jumps into
-/// VS Code (or whichever editor has registered `vscode://`).
+/// Render the call-site link on a log event. ⌘-click opens the
+/// configured editor (settings popup, top-right). Falls back to a
+/// plain "copy path" button when:
+/// - the source is a `package:` URI (we'd need pubspec resolution to
+///   turn it into an absolute file path)
+/// - the user selected "No deep link"
 function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
   const file = raw['sourceFile'];
   const line = raw['sourceLine'];
   if (typeof file !== 'string' || typeof line !== 'number') return null;
   const col = typeof raw['sourceColumn'] === 'number' ? raw['sourceColumn'] : 1;
 
-  // Strip `file:///` so the link is `vscode://file/abs/path` — VS Code
-  // accepts both forms but the bare path is what `code --goto` expects.
-  let path = file;
-  if (path.startsWith('file:///')) {
-    path = '/' + path.slice('file:///'.length);
+  // Resolve to an absolute path for IDE deep links. `file:///abs/path`
+  // → `/abs/path`; `package:foo/bar.dart` can't be resolved here so we
+  // skip the deep link and show the path verbatim.
+  let absPath: string | null = null;
+  let displayPath = file;
+  if (file.startsWith('file:///')) {
+    absPath = '/' + file.slice('file:///'.length);
+    displayPath = absPath;
+  } else if (file.startsWith('file://')) {
+    absPath = file.slice('file://'.length);
+    displayPath = absPath;
   }
-  const href = `vscode://file${path}:${line}:${col}`;
 
-  // Short display label: last 2 segments of the path + line:col.
-  const segments = file.split('/');
+  const segments = displayPath.split('/');
   const short = segments.slice(-2).join('/');
 
-  const wrap = el(
-    'div',
-    'flex items-center gap-3 text-xs',
-  );
+  // Resolve the active IDE's URL builder; may return null for paths
+  // the IDE can't handle.
+  const ide = IDES.find((i) => i.key === state.settings.ide) ?? IDES[0]!;
+  const href = absPath ? ide.buildUrl(absPath, line, col) : null;
+
+  const wrap = el('div', 'flex items-center gap-3 text-xs');
   wrap.appendChild(
     el(
       'span',
@@ -1134,14 +1249,30 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
       'source',
     ),
   );
-  const a = el(
-    'a',
-    'font-mono text-cyan-300 hover:text-cyan-200 underline decoration-cyan-700 underline-offset-2 truncate',
-    `${escapeHtml(short)}:${line}:${col}`,
-  ) as HTMLAnchorElement;
-  a.href = href;
-  a.title = `${file}:${line}:${col} — ⌘-click to open in VS Code`;
-  wrap.appendChild(a);
+
+  if (href) {
+    const a = el(
+      'a',
+      'font-mono text-cyan-300 hover:text-cyan-200 underline decoration-cyan-700 underline-offset-2 truncate',
+      `${escapeHtml(short)}:${line}:${col}`,
+    ) as HTMLAnchorElement;
+    a.href = href;
+    a.title = `${file}:${line}:${col} — ⌘-click to open in ${ide.label}`;
+    wrap.appendChild(a);
+  } else {
+    const span = el(
+      'span',
+      'font-mono text-zinc-300 truncate',
+      `${escapeHtml(short)}:${line}:${col}`,
+    );
+    span.title = file.startsWith('package:')
+      ? `${file}:${line}:${col} — package: URIs can't be opened directly. Use "copy path" or switch IDE in settings.`
+      : `${file}:${line}:${col}`;
+    wrap.appendChild(span);
+  }
+
+  const copyTarget =
+    absPath != null ? `${absPath}:${line}:${col}` : `${file}:${line}:${col}`;
   const copyBtn = el(
     'button',
     'text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
@@ -1151,7 +1282,7 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
     e.preventDefault();
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(`${path}:${line}:${col}`);
+      await navigator.clipboard.writeText(copyTarget);
       copyBtn.textContent = 'copied!';
       setTimeout(() => (copyBtn.textContent = 'copy path'), 1200);
     } catch {
@@ -1390,22 +1521,36 @@ function buildCopyButton(text: string): HTMLElement {
 // ---------- JSON syntax highlighting -----------------------------------
 // Tiny tokenizer that wraps strings / numbers / booleans / null / keys
 // in colored spans. Operates on already-pretty-printed JSON text.
+//
+// Important: we tokenize the *raw* JSON (where quotes are still ASCII
+// double-quotes), then escape *each token's text* exactly once on the
+// way into HTML. Earlier versions escaped the whole string up front
+// and then re-escaped inside the replacer, which double-encoded any
+// `&` / `<` / `>` inside string values.
 function highlightJson(src: string): string {
-  // Order matters — strings can contain anything else.
   const re =
-    /(\"(?:[^\"\\]|\\.)*\"\s*:)|(\"(?:[^\"\\]|\\.)*\")|(\b-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)/g;
-  return escapeHtml(src).replace(/&quot;/g, '"').replace(re, (m, key, str, num, bool, nul) => {
+    /("(?:[^"\\]|\\.)*"\s*:)|("(?:[^"\\]|\\.)*")|(\b-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)/g;
+  let out = '';
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    // Plain text between tokens — escape once.
+    if (m.index > lastIdx) {
+      out += escapeHtml(src.slice(lastIdx, m.index));
+    }
     let cls = '';
-    if (key) cls = 'text-cyan-300';
-    else if (str) cls = 'text-emerald-300';
-    else if (num) cls = 'text-amber-300';
-    else if (bool) cls = 'text-sky-400 font-semibold';
-    else if (nul) cls = 'text-zinc-500 italic';
-    return `<span class="${cls}">${m
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')}</span>`;
-  });
+    if (m[1]) cls = 'text-cyan-300';
+    else if (m[2]) cls = 'text-emerald-300';
+    else if (m[3]) cls = 'text-amber-300';
+    else if (m[4]) cls = 'text-sky-400 font-semibold';
+    else if (m[5]) cls = 'text-zinc-500 italic';
+    out += `<span class="${cls}">${escapeHtml(m[0])}</span>`;
+    lastIdx = re.lastIndex;
+  }
+  if (lastIdx < src.length) {
+    out += escapeHtml(src.slice(lastIdx));
+  }
+  return out;
 }
 
 function sectionTitle(title: string, hint: string): HTMLElement {
@@ -1422,9 +1567,99 @@ function renderJsonBlock(obj: unknown): HTMLElement {
   return copyableCodeBlock(text, { html: highlightJson(text) });
 }
 
+// ---------- Settings popup ----------
+
+function updateSettings() {
+  const layer = ui!.settingsLayerEl;
+  if (!state.settingsOpen) {
+    layer.classList.add('hidden');
+    layer.replaceChildren();
+    return;
+  }
+  layer.classList.remove('hidden');
+  layer.replaceChildren(renderSettings());
+}
+
+function renderSettings(): HTMLElement {
+  const backdrop = el(
+    'div',
+    'fixed inset-0 z-40 cursor-default',
+  );
+  backdrop.addEventListener('click', () => {
+    state.settingsOpen = false;
+    scheduleUpdate();
+  });
+
+  const panel = el(
+    'div',
+    'absolute top-12 right-3 z-50 w-[min(360px,calc(100vw-1.5rem))] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl p-4',
+  );
+  panel.addEventListener('click', (e) => e.stopPropagation());
+
+  const header = el(
+    'div',
+    'flex items-center justify-between mb-3',
+  );
+  header.appendChild(
+    el(
+      'h3',
+      'text-[11px] uppercase tracking-wider text-zinc-400 font-semibold',
+      'Settings',
+    ),
+  );
+  const closeBtn = el(
+    'button',
+    'text-zinc-500 hover:text-zinc-200 rounded-md p-1 -mr-1',
+    '<svg viewBox="0 0 16 16" class="size-3.5"><path fill="currentColor" d="M4.3 3.3a1 1 0 011.4 0L8 5.6l2.3-2.3a1 1 0 111.4 1.4L9.4 7l2.3 2.3a1 1 0 11-1.4 1.4L8 8.4 5.7 10.7a1 1 0 01-1.4-1.4L6.6 7 4.3 4.7a1 1 0 010-1.4z"/></svg>',
+  );
+  closeBtn.addEventListener('click', () => {
+    state.settingsOpen = false;
+    scheduleUpdate();
+  });
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  // IDE picker.
+  panel.appendChild(
+    el(
+      'label',
+      'block text-[11px] uppercase tracking-wider text-zinc-500 mb-1.5',
+      'Open source links with',
+    ),
+  );
+  const select = el(
+    'select',
+    'w-full h-9 px-2 rounded-md ring-1 ring-zinc-700 bg-zinc-900 text-zinc-200 text-sm hover:ring-zinc-500 focus:outline-none focus:ring-zinc-400 cursor-pointer',
+  ) as HTMLSelectElement;
+  for (const ide of IDES) {
+    const o = document.createElement('option');
+    o.value = ide.key;
+    o.textContent = ide.label;
+    if (ide.key === state.settings.ide) o.selected = true;
+    select.appendChild(o);
+  }
+  select.addEventListener('change', () => {
+    state.settings.ide = select.value as IdeKey;
+    saveSettings(state.settings);
+    scheduleUpdate();
+  });
+  panel.appendChild(select);
+
+  panel.appendChild(
+    el(
+      'p',
+      'mt-2 text-[11px] text-zinc-500 leading-relaxed',
+      'Click a source link in a log entry to ⌘-click into the chosen editor. Setting is saved in this browser.',
+    ),
+  );
+
+  backdrop.appendChild(panel);
+  return backdrop;
+}
+
 function openModal(ev: TimelineEvent) {
   state.modalEvent = ev;
-  state.modalTab = isHttpEvent(ev) ? 'request' : 'request';
+  state.modalTab = 'request';
   scheduleUpdate();
   // The list / SSE payload is a summary — headers + body live behind a
   // detail endpoint. Fetch them lazily so the Response / Request / Curl
@@ -1540,7 +1775,13 @@ window.addEventListener('mouseup', () => {
 });
 
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.modalEvent) closeModal();
+  if (e.key !== 'Escape') return;
+  if (state.modalEvent) {
+    closeModal();
+  } else if (state.settingsOpen) {
+    state.settingsOpen = false;
+    scheduleUpdate();
+  }
 });
 
 // ============================================================
