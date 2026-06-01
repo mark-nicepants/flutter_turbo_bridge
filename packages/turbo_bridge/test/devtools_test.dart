@@ -320,8 +320,7 @@ void main() {
       bus.close();
     });
 
-    test('start/complete records duration from the start timestamp',
-        () async {
+    test('start/complete records duration from the start timestamp', () async {
       final bus = DevToolsEventBus();
       final net = NetworkLog(bus: bus);
       final inflight = net.start(
