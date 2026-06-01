@@ -198,12 +198,37 @@ void main() {
     test('LogEntry.toJson omits null optional fields', () {
       final bus = DevToolsEventBus();
       final sink = LogSink(bus: bus);
-      final entry = sink.info('plain');
+      final entry =
+          sink.add(message: 'plain', captureSource: false);
       final json = entry.toJson();
       expect(json.containsKey('category'), isFalse);
       expect(json.containsKey('data'), isFalse);
       expect(json.containsKey('error'), isFalse);
+      expect(json.containsKey('sourceFile'), isFalse);
       expect(json['level'], 'info');
+      bus.close();
+    });
+
+    test('captures the caller source location from StackTrace', () {
+      final bus = DevToolsEventBus();
+      final sink = LogSink(bus: bus);
+      final entry = sink.info('here'); // ← this is the line we expect
+      // The frame should point at THIS test file (not log_sink.dart).
+      expect(entry.sourceFile, isNotNull);
+      expect(entry.sourceFile, contains('devtools_test.dart'));
+      expect(entry.sourceLine, isNotNull);
+      expect(entry.sourceLine!, greaterThan(0));
+      expect(entry.sourceColumn, isNotNull);
+      bus.close();
+    });
+
+    test('captureSource: false skips the stack-trace scan', () {
+      final bus = DevToolsEventBus();
+      final sink = LogSink(bus: bus);
+      final entry =
+          sink.add(message: 'nope', captureSource: false);
+      expect(entry.sourceFile, isNull);
+      expect(entry.sourceLine, isNull);
       bus.close();
     });
   });

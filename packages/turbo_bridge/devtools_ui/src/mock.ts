@@ -107,17 +107,29 @@ function fakeNetwork(): any {
   };
 }
 
+const MOCK_SOURCES: { file: string; line: number; col: number }[] = [
+  { file: 'file:///app/lib/main.dart', line: 42, col: 5 },
+  { file: 'file:///app/lib/home_page.dart', line: 88, col: 11 },
+  { file: 'file:///app/lib/auth/session.dart', line: 173, col: 9 },
+  { file: 'file:///app/lib/api/client.dart', line: 56, col: 7 },
+  { file: 'file:///app/lib/widgets/feed_card.dart', line: 23, col: 3 },
+];
+
 function fakeLog(): any {
   const levels = ['debug', 'info', 'info', 'info', 'warn', 'error'];
   const level = pick(levels);
   const category = pick(LOG_CATS);
   const message = pick(LOG_MESSAGES[category] ?? ['something happened']);
+  const src = pick(MOCK_SOURCES);
   return {
     id: mock.nextId++,
     timestamp: new Date().toISOString(),
     level,
     message,
     category,
+    sourceFile: src.file,
+    sourceLine: src.line,
+    sourceColumn: src.col,
   };
 }
 

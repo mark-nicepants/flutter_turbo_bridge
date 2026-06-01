@@ -65,7 +65,7 @@ interface State {
   // 0 disables retention. Surfaced as a dropdown in the header.
   retentionMs: number;
   modalEvent: TimelineEvent | null;
-  modalTab: 'request' | 'response' | 'timing' | 'curl' | 'raw';
+  modalTab: 'request' | 'response' | 'curl';
 }
 
 const DEFAULT_WINDOW_MS = 10_000;
@@ -90,7 +90,7 @@ const state: State = {
   follow: true,
   retentionMs: 30_000,
   modalEvent: null,
-  modalTab: 'response',
+  modalTab: 'request',
 };
 
 // ============================================================
@@ -111,6 +111,14 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 function fmtAbs(ms: number): string {
   if (!Number.isFinite(ms)) return '—';
   return new Date(ms).toLocaleTimeString();
+}
+
+// Same as `fmtAbs` but with the millisecond suffix so timestamps in
+// the event list can be ordered visually within a single second.
+function fmtAbsMs(ms: number): string {
+  if (!Number.isFinite(ms)) return '—';
+  const d = new Date(ms);
+  return `${d.toLocaleTimeString()}.${`${d.getMilliseconds()}`.padStart(3, '0')}`;
 }
 
 function fmtAxisTime(t: number, wDur: number): string {
@@ -933,13 +941,13 @@ function buildEventRow(ev: TimelineEvent): HTMLElement {
     'button',
     'w-full text-left px-4 h-9 grid items-center gap-3 text-sm cursor-pointer transition-colors hover:bg-zinc-900/60',
   );
-  row.style.gridTemplateColumns = '90px 90px 70px minmax(0, 1fr)';
+  row.style.gridTemplateColumns = '130px 90px 70px minmax(0, 1fr)';
   row.addEventListener('click', () => openModal(ev));
   row.appendChild(
     el(
       'div',
-      'font-mono text-[11px] text-zinc-500 whitespace-nowrap',
-      fmtAbs(ev.timestamp),
+      'font-mono text-[11px] text-zinc-500 whitespace-nowrap tabular-nums',
+      fmtAbsMs(ev.timestamp),
     ),
   );
   row.appendChild(
@@ -987,16 +995,18 @@ function updateModal() {
 }
 
 function renderModal(ev: TimelineEvent): HTMLElement {
+  // Anchor at a fixed top offset so switching tabs doesn't shift the
+  // tab strip around. Content grows downward.
   const backdrop = el(
     'div',
-    'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
+    'fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-16',
   );
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) closeModal();
   });
   const card = el(
     'div',
-    'w-[min(960px,92vw)] max-h-[88vh] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl flex flex-col overflow-hidden',
+    'w-[min(1040px,92vw)] max-h-[calc(100vh-6rem)] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl flex flex-col overflow-hidden',
   );
   card.appendChild(renderModalHeader(ev));
   card.appendChild(renderModalBody(ev));
@@ -1083,8 +1093,72 @@ function renderModalHeader(ev: TimelineEvent): HTMLElement {
 
 function renderModalBody(ev: TimelineEvent): HTMLElement {
   if (isHttpEvent(ev)) return renderNetworkBody(ev);
-  const wrap = el('div', 'flex-1 min-h-0 overflow-auto p-4 bg-zinc-950');
+  const wrap = el(
+    'div',
+    'flex-1 min-h-0 overflow-auto p-4 bg-zinc-950 space-y-4',
+  );
+  const link = renderSourceLink(ev.raw);
+  if (link) wrap.appendChild(link);
   wrap.appendChild(renderJsonBlock(ev.raw));
+  return wrap;
+}
+
+/// Render the call-site link on a log event. Cmd-click jumps into
+/// VS Code (or whichever editor has registered `vscode://`).
+function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
+  const file = raw['sourceFile'];
+  const line = raw['sourceLine'];
+  if (typeof file !== 'string' || typeof line !== 'number') return null;
+  const col = typeof raw['sourceColumn'] === 'number' ? raw['sourceColumn'] : 1;
+
+  // Strip `file:///` so the link is `vscode://file/abs/path` — VS Code
+  // accepts both forms but the bare path is what `code --goto` expects.
+  let path = file;
+  if (path.startsWith('file:///')) {
+    path = '/' + path.slice('file:///'.length);
+  }
+  const href = `vscode://file${path}:${line}:${col}`;
+
+  // Short display label: last 2 segments of the path + line:col.
+  const segments = file.split('/');
+  const short = segments.slice(-2).join('/');
+
+  const wrap = el(
+    'div',
+    'flex items-center gap-3 text-xs',
+  );
+  wrap.appendChild(
+    el(
+      'span',
+      'text-[10px] uppercase tracking-wider text-zinc-500',
+      'source',
+    ),
+  );
+  const a = el(
+    'a',
+    'font-mono text-cyan-300 hover:text-cyan-200 underline decoration-cyan-700 underline-offset-2 truncate',
+    `${escapeHtml(short)}:${line}:${col}`,
+  ) as HTMLAnchorElement;
+  a.href = href;
+  a.title = `${file}:${line}:${col} — ⌘-click to open in VS Code`;
+  wrap.appendChild(a);
+  const copyBtn = el(
+    'button',
+    'text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
+    'copy path',
+  );
+  copyBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(`${path}:${line}:${col}`);
+      copyBtn.textContent = 'copied!';
+      setTimeout(() => (copyBtn.textContent = 'copy path'), 1200);
+    } catch {
+      copyBtn.textContent = 'copy failed';
+    }
+  });
+  wrap.appendChild(copyBtn);
   return wrap;
 }
 
@@ -1094,7 +1168,7 @@ function renderNetworkBody(ev: TimelineEvent): HTMLElement {
     'nav',
     'flex items-center gap-1 px-3 border-b border-zinc-800 bg-zinc-900/40',
   );
-  (['response', 'request', 'timing', 'curl', 'raw'] as const).forEach((t) =>
+  (['request', 'response', 'curl'] as const).forEach((t) =>
     tabs.appendChild(modalTab(t)),
   );
   wrap.appendChild(tabs);
@@ -1107,25 +1181,15 @@ function renderNetworkBody(ev: TimelineEvent): HTMLElement {
     case 'response':
       body.appendChild(renderResponseSection(ev.raw));
       break;
-    case 'timing':
-      body.appendChild(renderTimingSection(ev));
-      break;
     case 'curl':
       body.appendChild(renderCurlSection(ev.raw));
-      break;
-    case 'raw':
-      body.appendChild(
-        el('div', 'p-4').appendChild(renderJsonBlock(ev.raw)).parentElement!,
-      );
       break;
   }
   wrap.appendChild(body);
   return wrap;
 }
 
-function modalTab(
-  t: 'request' | 'response' | 'timing' | 'curl' | 'raw',
-): HTMLElement {
+function modalTab(t: 'request' | 'response' | 'curl'): HTMLElement {
   const active = state.modalTab === t;
   const cap = t[0]!.toUpperCase() + t.slice(1);
   const btn = el(
@@ -1185,36 +1249,6 @@ function renderResponseSection(raw: Record<string, unknown>): HTMLElement {
   return wrap;
 }
 
-function renderTimingSection(ev: TimelineEvent): HTMLElement {
-  const wrap = el('div', 'p-4 space-y-4 text-sm');
-  const total = ev.durationMs ?? 0;
-  const rows = [
-    ['Total', `${total} ms`],
-    ['Started', new Date(ev.timestamp).toISOString()],
-    ['Finished', new Date(ev.timestamp + total).toISOString()],
-  ];
-  const tbl = el(
-    'div',
-    'rounded-md ring-1 ring-zinc-800 divide-y divide-zinc-800 bg-zinc-900/30 font-mono text-xs',
-  );
-  for (const [k, v] of rows) {
-    const r = el('div', 'flex items-center gap-4 px-3 py-2');
-    r.appendChild(el('div', 'w-24 text-zinc-500', k));
-    r.appendChild(el('div', 'text-zinc-100 truncate', escapeHtml(v)));
-    tbl.appendChild(r);
-  }
-  wrap.appendChild(tbl);
-  const bar = el(
-    'div',
-    'h-6 rounded bg-zinc-900 ring-1 ring-zinc-800 relative overflow-hidden',
-  );
-  const fill = el('div', 'absolute inset-y-0 bg-cyan-500/40 border-r border-cyan-400');
-  fill.style.width = '100%';
-  bar.appendChild(fill);
-  wrap.appendChild(bar);
-  return wrap;
-}
-
 function buildCurlCommand(raw: Record<string, unknown>): string {
   const method = ((raw['method'] as string | undefined) ?? 'GET').toUpperCase();
   const url =
@@ -1240,8 +1274,8 @@ function maskHeaderValue(name: string, value: string): string {
   const lower = name.toLowerCase();
   if (lower === 'authorization') {
     const m = value.match(/^(Bearer|Basic|Digest|Token)\s+(.+)$/i);
-    if (m) return `${m[1]} ##TOKEN##`;
-    return '##TOKEN##';
+    if (m) return `${m[1]} {{token}}`;
+    return '{{token}}';
   }
   if (lower === 'cookie' || lower === 'set-cookie') {
     return value
@@ -1250,12 +1284,12 @@ function maskHeaderValue(name: string, value: string): string {
         const eq = part.indexOf('=');
         if (eq < 0) return part;
         const key = part.slice(0, eq).trim();
-        return `${key}=##VALUE##`;
+        return `${key}={{value}}`;
       })
       .join('; ');
   }
   if (lower === 'x-api-key' || lower.endsWith('-api-key') || lower.endsWith('-token')) {
-    return '##TOKEN##';
+    return '{{token}}';
   }
   return value;
 }
@@ -1266,38 +1300,8 @@ function shellQuote(s: string): string {
 }
 
 function renderCurlSection(raw: Record<string, unknown>): HTMLElement {
-  const wrap = el('div', 'p-4 space-y-3');
-  wrap.appendChild(
-    el(
-      'div',
-      'flex items-center gap-2 text-[10px] uppercase tracking-wider text-zinc-500',
-      'Authorization headers, cookies, and *-api-key / *-token headers are masked with <span class="font-mono text-zinc-300">##TOKEN##</span>.',
-    ),
-  );
-
-  const cmd = buildCurlCommand(raw);
-  const codeBlock = el(
-    'pre',
-    'rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto max-h-[50vh] whitespace-pre-wrap break-all relative',
-  );
-  codeBlock.appendChild(document.createTextNode(cmd));
-
-  const copyBtn = el(
-    'button',
-    'absolute top-2 right-2 text-[10px] uppercase tracking-wider px-2 py-1 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
-    'copy',
-  );
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(cmd);
-      copyBtn.textContent = 'copied!';
-      setTimeout(() => (copyBtn.textContent = 'copy'), 1200);
-    } catch {
-      copyBtn.textContent = 'copy failed';
-    }
-  });
-  codeBlock.appendChild(copyBtn);
-  wrap.appendChild(codeBlock);
+  const wrap = el('div', 'p-4');
+  wrap.appendChild(copyableCodeBlock(buildCurlCommand(raw)));
   return wrap;
 }
 
@@ -1322,18 +1326,86 @@ function renderBodyBlock(body: string | undefined): HTMLElement {
   if (!body) return el('div', 'text-zinc-500 text-xs', '<em>(empty)</em>');
   const t = body.trim();
   let text = body;
-  if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+  let isJson = false;
+  if (
+    (t.startsWith('{') && t.endsWith('}')) ||
+    (t.startsWith('[') && t.endsWith(']'))
+  ) {
     try {
       text = JSON.stringify(JSON.parse(t), null, 2);
+      isJson = true;
     } catch {
       // leave as-is
     }
   }
-  return el(
+  return copyableCodeBlock(text, { html: isJson ? highlightJson(text) : null });
+}
+
+// Generic "code block with a copy button in the corner". When `html`
+// is provided it's used as the rendered (already escaped) markup;
+// otherwise we escape `text` ourselves. The copy button always copies
+// the raw `text`.
+function copyableCodeBlock(
+  text: string,
+  opts: { html?: string | null; maxHeight?: string } = {},
+): HTMLElement {
+  const pre = el(
     'pre',
-    'rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto max-h-[50vh] whitespace-pre-wrap break-all',
-    escapeHtml(text),
+    [
+      'relative rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto whitespace-pre-wrap break-all',
+      opts.maxHeight ? '' : 'max-h-[60vh]',
+    ].join(' '),
   );
+  if (opts.maxHeight) pre.style.maxHeight = opts.maxHeight;
+  const code = el('code', 'block pr-12');
+  if (opts.html != null) {
+    code.innerHTML = opts.html;
+  } else {
+    code.textContent = text;
+  }
+  pre.appendChild(code);
+  pre.appendChild(buildCopyButton(text));
+  return pre;
+}
+
+function buildCopyButton(text: string): HTMLElement {
+  const btn = el(
+    'button',
+    'absolute top-2 right-2 text-[10px] uppercase tracking-wider px-2 py-1 rounded ring-1 ring-zinc-700 bg-zinc-900/80 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
+    'copy',
+  );
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = 'copied!';
+      setTimeout(() => (btn.textContent = 'copy'), 1200);
+    } catch {
+      btn.textContent = 'copy failed';
+    }
+  });
+  return btn;
+}
+
+// ---------- JSON syntax highlighting -----------------------------------
+// Tiny tokenizer that wraps strings / numbers / booleans / null / keys
+// in colored spans. Operates on already-pretty-printed JSON text.
+function highlightJson(src: string): string {
+  // Order matters — strings can contain anything else.
+  const re =
+    /(\"(?:[^\"\\]|\\.)*\"\s*:)|(\"(?:[^\"\\]|\\.)*\")|(\b-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)/g;
+  return escapeHtml(src).replace(/&quot;/g, '"').replace(re, (m, key, str, num, bool, nul) => {
+    let cls = '';
+    if (key) cls = 'text-cyan-300';
+    else if (str) cls = 'text-emerald-300';
+    else if (num) cls = 'text-amber-300';
+    else if (bool) cls = 'text-sky-400 font-semibold';
+    else if (nul) cls = 'text-zinc-500 italic';
+    return `<span class="${cls}">${m
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')}</span>`;
+  });
 }
 
 function sectionTitle(title: string, hint: string): HTMLElement {
@@ -1346,16 +1418,13 @@ function sectionTitle(title: string, hint: string): HTMLElement {
 }
 
 function renderJsonBlock(obj: unknown): HTMLElement {
-  return el(
-    'pre',
-    'rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto max-h-[60vh]',
-    escapeHtml(JSON.stringify(obj, null, 2)),
-  );
+  const text = JSON.stringify(obj, null, 2);
+  return copyableCodeBlock(text, { html: highlightJson(text) });
 }
 
 function openModal(ev: TimelineEvent) {
   state.modalEvent = ev;
-  state.modalTab = isHttpEvent(ev) ? 'response' : 'raw';
+  state.modalTab = isHttpEvent(ev) ? 'request' : 'request';
   scheduleUpdate();
   // The list / SSE payload is a summary — headers + body live behind a
   // detail endpoint. Fetch them lazily so the Response / Request / Curl
