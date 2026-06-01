@@ -1568,16 +1568,23 @@ function renderJsonBlock(obj: unknown): HTMLElement {
 }
 
 // ---------- Settings popup ----------
+//
+// The popup contains a native <select>. Rebuilding it on every tick
+// would close the user's open dropdown out from under them — so we
+// build the popup DOM exactly once (lazily, on first open) and after
+// that only toggle visibility. See `devtools_ui/AGENTS.md` for the
+// general rule.
 
 function updateSettings() {
   const layer = ui!.settingsLayerEl;
   if (!state.settingsOpen) {
     layer.classList.add('hidden');
-    layer.replaceChildren();
     return;
   }
+  if (layer.children.length === 0) {
+    layer.appendChild(renderSettings());
+  }
   layer.classList.remove('hidden');
-  layer.replaceChildren(renderSettings());
 }
 
 function renderSettings(): HTMLElement {
@@ -1627,9 +1634,15 @@ function renderSettings(): HTMLElement {
       'Open source links with',
     ),
   );
+
+  // The native <select>'s chevron sits flush against the right edge
+  // (and is differently placed on every platform). Wrap it so we can
+  // hide the native chevron via `appearance-none` and overlay our own
+  // at a controlled offset.
+  const selectWrap = el('div', 'relative');
   const select = el(
     'select',
-    'w-full h-9 px-2 rounded-md ring-1 ring-zinc-700 bg-zinc-900 text-zinc-200 text-sm hover:ring-zinc-500 focus:outline-none focus:ring-zinc-400 cursor-pointer',
+    'appearance-none w-full h-9 pl-3 pr-9 rounded-md ring-1 ring-zinc-700 bg-zinc-900 text-zinc-200 text-sm hover:ring-zinc-500 focus:outline-none focus:ring-zinc-400 cursor-pointer truncate',
   ) as HTMLSelectElement;
   for (const ide of IDES) {
     const o = document.createElement('option');
@@ -1643,7 +1656,15 @@ function renderSettings(): HTMLElement {
     saveSettings(state.settings);
     scheduleUpdate();
   });
-  panel.appendChild(select);
+  selectWrap.appendChild(select);
+  selectWrap.appendChild(
+    el(
+      'span',
+      'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500',
+      '<svg viewBox="0 0 16 16" class="size-3.5"><path fill="currentColor" d="M3.7 5.7a1 1 0 011.4 0L8 8.6l2.9-2.9a1 1 0 111.4 1.4l-3.6 3.6a1 1 0 01-1.4 0L3.7 7.1a1 1 0 010-1.4z"/></svg>',
+    ),
+  );
+  panel.appendChild(selectWrap);
 
   panel.appendChild(
     el(

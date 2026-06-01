@@ -83,6 +83,54 @@ When you add a new visual element:
    `Map<string, HTMLElement>` cache keyed by event id, and only
    create / destroy elements when the underlying set changes.
 
+### Minimal-update rule (be lazy in `update*()`)
+
+**Default to doing nothing.** Every `update*()` function runs on every
+state change — including ones that have nothing to do with that
+section. Before you mutate anything, ask "did the input I render from
+actually change?" and skip the work if not. The cost of
+over-rendering isn't just CPU — it destroys interactive UI state
+that depends on DOM identity.
+
+Things that break when a parent is rebuilt mid-interaction:
+
+- a **native `<select>`** with its dropdown open (it closes)
+- text **selection** that crosses the rebuilt subtree (it clears)
+- the **caret** position inside an `<input>` or `<textarea>`
+- **focus** (moves to `<body>`)
+- in-flight **CSS transitions** (snap to the end state)
+- the user's current **scroll position** within the rebuilt subtree
+
+Concrete patterns that work:
+
+- **Lazy / once-only build** for popups and panels:
+  ```ts
+  function updateSettings() {
+    const layer = ui!.settingsLayerEl;
+    if (!state.settingsOpen) { layer.classList.add('hidden'); return; }
+    if (layer.children.length === 0) layer.appendChild(renderSettings());
+    layer.classList.remove('hidden');
+  }
+  ```
+- **Signature gate** for re-renders (see `updateModal` —
+  `modalEventId|modalTab` only rebuilds when the signature changes).
+- **In-place mutation** of textContent / `classList.toggle` /
+  inline styles when only a small fact changed.
+- **Per-id caches** (timeline tracks, minimap marks, event-list rows)
+  so existing nodes survive across updates.
+
+Rules of thumb:
+
+- If you find yourself writing `replaceChildren(...)` in `update*`,
+  pause. Is this section actually changing? Can you write a signature
+  string and bail when it hasn't?
+- If the section contains form inputs (`<select>`, `<input>`, focus
+  targets) the bar is even higher — never rebuild while the popup is
+  visible.
+- When state writes don't affect a section, that section should be a
+  no-op. Hot paths like SSE log streams hit `update()` many times a
+  second; each `update*` should detect "nothing for me" cheaply.
+
 ### State changes go through `scheduleUpdate()`
 
 Never call `update()` directly. `scheduleUpdate()` coalesces multiple
