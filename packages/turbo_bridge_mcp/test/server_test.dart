@@ -330,7 +330,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.5',
+            bridgeVersion: '0.1.6',
             currentRoute: '/',
             locale: 'en_US',
           ));
@@ -358,7 +358,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.6',
+            bridgeVersion: '0.1.7',
           ));
 
       final result = await mcpClient.callTool(
@@ -507,7 +507,7 @@ void main() {
             pixelRatio: 3.0,
             platform: 'macos',
             darkMode: false,
-            bridgeVersion: '0.1.5',
+            bridgeVersion: '0.1.6',
           ));
 
       final result = await mcpClient.readResource(
