@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 typedef ProcessRunner = Future<ProcessResult> Function(
@@ -12,24 +11,19 @@ typedef HttpReachabilityProbe = Future<bool> Function(
   String path,
 );
 
-typedef BridgeInfoLoader = Future<Map<String, dynamic>?> Function(
-  String host,
-  int port,
-);
-
+/// Result of trying to make the device bridge reachable from the host.
+///
+/// Since the DevTools UI now runs on the host (not the device), only the
+/// single bridge port needs forwarding.
 class AdbForwardingSession {
   AdbForwardingSession({
     required this.bridgeForwarded,
-    required this.devToolsForwarded,
-    required this.devToolsPort,
     required Set<int> forwardedPorts,
     required ProcessRunner processRunner,
   })  : _forwardedPorts = List<int>.unmodifiable(forwardedPorts),
         _processRunner = processRunner;
 
   final bool bridgeForwarded;
-  final bool devToolsForwarded;
-  final int? devToolsPort;
   final List<int> _forwardedPorts;
   final ProcessRunner _processRunner;
 
@@ -39,18 +33,7 @@ class AdbForwardingSession {
     if (!hasForwarding) {
       return '';
     }
-
-    final details = <String>[];
-    if (bridgeForwarded && _forwardedPorts.isNotEmpty) {
-      details.add('bridge=${_forwardedPorts.first}');
-    }
-    if (devToolsForwarded && devToolsPort != null) {
-      details.add('devtools=$devToolsPort');
-    }
-
-    return details.isEmpty
-        ? ', adb forwarded'
-        : ', adb forwarded ${details.join(', ')}';
+    return ', adb forwarded ${_forwardedPorts.first}';
   }
 
   Future<void> cleanup() async {
@@ -60,37 +43,26 @@ class AdbForwardingSession {
   }
 }
 
-Future<AdbForwardingSession> ensureBridgeAndDevToolsReachable({
+/// Ensure the device bridge is reachable at [host]:[bridgePort], setting up an
+/// `adb forward` for that single port if a direct connection fails.
+Future<AdbForwardingSession> ensureBridgeReachable({
   required String host,
   required int bridgePort,
   ProcessRunner processRunner = _runProcess,
   HttpReachabilityProbe reachabilityProbe = _canReachHttpEndpoint,
-  BridgeInfoLoader bridgeInfoLoader = _loadBridgeInfo,
 }) async {
   final forwardedPorts = <int>{};
   var bridgeForwarded = false;
-  var devToolsForwarded = false;
-  int? devToolsPort;
 
-  AdbEnvironment? adbEnvironment;
-
-  Future<AdbEnvironment> loadAdbEnvironment() async {
-    adbEnvironment ??=
-        await _detectAdbEnvironment(processRunner: processRunner);
-    return adbEnvironment!;
-  }
-
-  var bridgeReachable = await reachabilityProbe(host, bridgePort, '/health');
-  if (!bridgeReachable) {
-    final adb = await loadAdbEnvironment();
+  var reachable = await reachabilityProbe(host, bridgePort, '/health');
+  if (!reachable) {
+    final adb = await _detectAdbEnvironment(processRunner: processRunner);
     if (!adb.isAvailable) {
       stderr.writeln(
         'Bridge not reachable at $host:$bridgePort (no ADB available)',
       );
       return AdbForwardingSession(
         bridgeForwarded: false,
-        devToolsForwarded: false,
-        devToolsPort: null,
         forwardedPorts: forwardedPorts,
         processRunner: processRunner,
       );
@@ -102,8 +74,6 @@ Future<AdbForwardingSession> ensureBridgeAndDevToolsReachable({
       );
       return AdbForwardingSession(
         bridgeForwarded: false,
-        devToolsForwarded: false,
-        devToolsPort: null,
         forwardedPorts: forwardedPorts,
         processRunner: processRunner,
       );
@@ -115,8 +85,8 @@ Future<AdbForwardingSession> ensureBridgeAndDevToolsReachable({
       stderr.writeln(
         'ADB forward established: localhost:$bridgePort -> device:$bridgePort',
       );
-      bridgeReachable = await reachabilityProbe(host, bridgePort, '/health');
-      if (!bridgeReachable) {
+      reachable = await reachabilityProbe(host, bridgePort, '/health');
+      if (!reachable) {
         stderr.writeln(
           'ADB forward set up but bridge not responding on device:$bridgePort',
         );
@@ -124,61 +94,8 @@ Future<AdbForwardingSession> ensureBridgeAndDevToolsReachable({
     }
   }
 
-  if (!bridgeReachable) {
-    return AdbForwardingSession(
-      bridgeForwarded: bridgeForwarded,
-      devToolsForwarded: false,
-      devToolsPort: null,
-      forwardedPorts: forwardedPorts,
-      processRunner: processRunner,
-    );
-  }
-
-  final info = await bridgeInfoLoader(host, bridgePort);
-  devToolsPort = _extractEnabledDevToolsPort(info);
-  if (devToolsPort != null && !forwardedPorts.contains(devToolsPort)) {
-    final devToolsReachable = await reachabilityProbe(
-      '127.0.0.1',
-      devToolsPort,
-      '/',
-    );
-
-    if (!devToolsReachable) {
-      final adb = await loadAdbEnvironment();
-      if (!adb.isAvailable) {
-        stderr.writeln(
-          'DevTools UI not reachable at localhost:$devToolsPort '
-          '(no ADB available)',
-        );
-      } else if (!adb.hasConnectedDevice) {
-        stderr.writeln(
-          'DevTools UI not reachable at localhost:$devToolsPort '
-          '(no Android device connected)',
-        );
-      } else if (await _addAdbForward(
-        devToolsPort,
-        processRunner: processRunner,
-      )) {
-        devToolsForwarded = true;
-        forwardedPorts.add(devToolsPort);
-        stderr.writeln(
-          'ADB forward established: localhost:$devToolsPort '
-          '-> device:$devToolsPort (DevTools UI)',
-        );
-        if (!await reachabilityProbe('127.0.0.1', devToolsPort, '/')) {
-          stderr.writeln(
-            'ADB forward set up but DevTools UI not responding '
-            'on device:$devToolsPort',
-          );
-        }
-      }
-    }
-  }
-
   return AdbForwardingSession(
     bridgeForwarded: bridgeForwarded,
-    devToolsForwarded: devToolsForwarded,
-    devToolsPort: devToolsPort,
     forwardedPorts: forwardedPorts,
     processRunner: processRunner,
   );
@@ -187,18 +104,131 @@ Future<AdbForwardingSession> ensureBridgeAndDevToolsReachable({
 Future<AdbEnvironment> _detectAdbEnvironment({
   required ProcessRunner processRunner,
 }) async {
-  final adbCheck = await processRunner('adb', ['devices']);
-  if (adbCheck.exitCode != 0) {
+  try {
+    final adbCheck = await processRunner('adb', ['devices']);
+    if (adbCheck.exitCode != 0) {
+      return const AdbEnvironment(
+          isAvailable: false, hasConnectedDevice: false);
+    }
+
+    final hasConnectedDevice = (adbCheck.stdout as String)
+        .split('\n')
+        .any((line) => line.contains('\tdevice'));
+
+    return AdbEnvironment(
+      isAvailable: true,
+      hasConnectedDevice: hasConnectedDevice,
+    );
+  } catch (_) {
+    // adb binary not on PATH (Process.run throws) — treat as unavailable.
     return const AdbEnvironment(isAvailable: false, hasConnectedDevice: false);
   }
+}
 
-  final hasConnectedDevice = (adbCheck.stdout as String)
-      .split('\n')
-      .any((line) => line.contains('\tdevice'));
+/// Snapshot of bridge reachability + the local ADB environment, returned by
+/// [probeBridgeStatus] / [reconnectBridge] and surfaced to the DevTools UI so
+/// it can offer a one-click reconnect.
+class BridgeReconnectStatus {
+  const BridgeReconnectStatus({
+    required this.bridgeReachable,
+    required this.adbAvailable,
+    required this.deviceConnected,
+    this.forwarded = false,
+    this.message = '',
+  });
 
-  return AdbEnvironment(
-    isAvailable: true,
-    hasConnectedDevice: hasConnectedDevice,
+  final bool bridgeReachable;
+  final bool adbAvailable;
+  final bool deviceConnected;
+  final bool forwarded;
+  final String message;
+
+  BridgeReconnectStatus copyWith({
+    bool? bridgeReachable,
+    bool? forwarded,
+    String? message,
+  }) =>
+      BridgeReconnectStatus(
+        bridgeReachable: bridgeReachable ?? this.bridgeReachable,
+        adbAvailable: adbAvailable,
+        deviceConnected: deviceConnected,
+        forwarded: forwarded ?? this.forwarded,
+        message: message ?? this.message,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'bridgeReachable': bridgeReachable,
+        'adbAvailable': adbAvailable,
+        'deviceConnected': deviceConnected,
+        'forwarded': forwarded,
+        'message': message,
+      };
+}
+
+/// Probe whether the bridge is reachable and what the local ADB environment
+/// looks like — without changing anything.
+Future<BridgeReconnectStatus> probeBridgeStatus({
+  required String host,
+  required int bridgePort,
+  ProcessRunner? processRunner,
+  HttpReachabilityProbe? reachabilityProbe,
+}) async {
+  final runner = processRunner ?? _runProcess;
+  final probe = reachabilityProbe ?? _canReachHttpEndpoint;
+  final reachable = await probe(host, bridgePort, '/health');
+  final adb = await _detectAdbEnvironment(processRunner: runner);
+  return BridgeReconnectStatus(
+    bridgeReachable: reachable,
+    adbAvailable: adb.isAvailable,
+    deviceConnected: adb.hasConnectedDevice,
+    message: reachable ? 'Bridge reachable.' : 'Bridge not reachable.',
+  );
+}
+
+/// Best-effort reconnect: if the bridge isn't reachable, (re)establish the
+/// `adb forward tcp:<bridgePort>` and re-probe. Safe to call repeatedly —
+/// this is what the DevTools UI's "Reconnect" button triggers.
+Future<BridgeReconnectStatus> reconnectBridge({
+  required String host,
+  required int bridgePort,
+  ProcessRunner? processRunner,
+  HttpReachabilityProbe? reachabilityProbe,
+}) async {
+  final runner = processRunner ?? _runProcess;
+  final probe = reachabilityProbe ?? _canReachHttpEndpoint;
+  final status = await probeBridgeStatus(
+    host: host,
+    bridgePort: bridgePort,
+    processRunner: runner,
+    reachabilityProbe: probe,
+  );
+  if (status.bridgeReachable) {
+    return status.copyWith(message: 'Bridge already reachable.');
+  }
+  if (!status.adbAvailable) {
+    return status.copyWith(
+      message: 'ADB not found on PATH. Install platform-tools, or run the '
+          'app on this machine so the bridge is reachable on localhost.',
+    );
+  }
+  if (!status.deviceConnected) {
+    return status.copyWith(
+      message: 'No Android device detected by adb. Plug in / reconnect the '
+          'device and try again.',
+    );
+  }
+  final ok = await _addAdbForward(bridgePort, processRunner: runner);
+  if (!ok) {
+    return status.copyWith(message: 'adb forward failed — see server logs.');
+  }
+  final reachable = await probe(host, bridgePort, '/health');
+  return status.copyWith(
+    bridgeReachable: reachable,
+    forwarded: true,
+    message: reachable
+        ? 'ADB forward established — reconnected.'
+        : 'Forward set up but the bridge is not responding yet. Is the app '
+            'running with DevTools enabled?',
   );
 }
 
@@ -222,44 +252,6 @@ Future<void> _removeAdbForward(
 }) async {
   await processRunner('adb', ['forward', '--remove', 'tcp:$port']);
   stderr.writeln('ADB forward removed for port $port');
-}
-
-int? _extractEnabledDevToolsPort(Map<String, dynamic>? info) {
-  final devTools = info?['devTools'];
-  if (devTools is! Map<String, dynamic>) {
-    return null;
-  }
-  if (devTools['enabled'] != true) {
-    return null;
-  }
-  final port = devTools['port'];
-  if (port is int) {
-    return port;
-  }
-  if (port is num) {
-    return port.toInt();
-  }
-  return null;
-}
-
-Future<Map<String, dynamic>?> _loadBridgeInfo(String host, int port) async {
-  final client = HttpClient();
-  client.connectionTimeout = const Duration(seconds: 2);
-  try {
-    final request = await client.getUrl(Uri.parse('http://$host:$port/info'));
-    final response = await request.close();
-    if (response.statusCode != 200) {
-      return null;
-    }
-
-    final body = await response.transform(utf8.decoder).join();
-    final json = jsonDecode(body);
-    return json is Map<String, dynamic> ? json : null;
-  } catch (_) {
-    return null;
-  } finally {
-    client.close(force: true);
-  }
 }
 
 Future<bool> _canReachHttpEndpoint(String host, int port, String path) async {

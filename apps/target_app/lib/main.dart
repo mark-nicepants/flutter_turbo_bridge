@@ -4,13 +4,14 @@ import 'package:turbo_bridge/turbo_bridge.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start the Turbo Bridge server (with DevTools UI on 8889 for local
-  // browser inspection — never enable in a production build).
+  // Start the Turbo Bridge server with DevTools data + SSE enabled. The
+  // DevTools web UI runs on the host (e.g. `dart run turbo_bridge_mcp:devtools`
+  // or the MCP server) and connects to these endpoints over the bridge port.
+  // Never enable in a production build.
   await TurboBridge.start(
     config: const BridgeConfig(
       port: 8888,
       enableDevTools: true,
-      devToolsPort: 8889,
     ),
     ensureInitialized: false,
   );

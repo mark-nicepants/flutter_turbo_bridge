@@ -7,10 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http_interceptor/http_interceptor.dart' hide Request, Response;
 import 'package:shelf/shelf.dart';
 import 'package:turbo_bridge/interceptors/http.dart';
-import 'package:turbo_bridge/src/devtools/devtools_router.dart';
+import 'package:turbo_bridge/src/devtools/devtools_api.dart';
 import 'package:turbo_bridge/src/devtools/event_bus.dart';
 import 'package:turbo_bridge/src/devtools/request_log.dart';
-import 'package:turbo_bridge/src/devtools/static_handler.dart';
 import 'package:turbo_bridge/src/server/router.dart';
 import 'package:turbo_bridge/turbo_bridge.dart';
 
@@ -715,80 +714,20 @@ void main() {
     });
   });
 
-  group('DevToolsStaticHandler', () {
-    final fixtureAssets = <String, DevToolsAsset>{
-      'index.html': const DevToolsAsset.text(
-        '<html><body>shell</body></html>',
-        'text/html; charset=utf-8',
-      ),
-      'styles.css': const DevToolsAsset.text('body { color: red }', 'text/css'),
-    };
-
-    test('serves /index.html by default', () {
-      final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res = handler.handle(Request('GET', Uri.parse('http://x:8889/')));
-      expect(res.statusCode, 200);
-      expect(res.headers['content-type'], startsWith('text/html'));
-    });
-
-    test('unknown paths fall back to the SPA shell', () {
-      final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res = handler.handle(
-        Request('GET', Uri.parse('http://x:8889/some/deep/link')),
-      );
-      expect(res.statusCode, 200);
-      expect(res.headers['content-type'], startsWith('text/html'));
-    });
-
-    test('serves a known asset with its content type', () {
-      final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res = handler.handle(
-        Request('GET', Uri.parse('http://x:8889/styles.css')),
-      );
-      expect(res.statusCode, 200);
-      expect(res.headers['content-type'], 'text/css');
-    });
-
-    test('404 when no assets are loaded at all', () {
-      final handler = DevToolsStaticHandler(assets: const {});
-      final res = handler.handle(
-        Request('GET', Uri.parse('http://x:8889/anything')),
-      );
-      expect(res.statusCode, 404);
-    });
-  });
-
-  group('DevToolsRouter', () {
+  group('DevToolsApi', () {
     late RequestLog log;
     late DevToolsEventBus bus;
-    late BridgeRouter bridgeRouter;
-    late DevToolsRouter router;
+    late DevToolsApi api;
 
     setUp(() {
       log = RequestLog();
       bus = DevToolsEventBus();
-      bridgeRouter = BridgeRouter(
-        screenshotService: ScreenshotService(),
-        widgetTreeService: WidgetTreeService(),
-        gestureService: GestureService(),
-        appInfoService: AppInfoService(),
-        findService: FindService(),
-      );
-      router = DevToolsRouter(
-        bridgeRouter: bridgeRouter,
+      api = DevToolsApi(
         eventBus: bus,
         requestLog: log,
         logs: LogSink(bus: bus),
         network: NetworkLog(bus: bus),
         navigation: NavigationLog(bus: bus),
-        staticHandler: DevToolsStaticHandler(
-          assets: {
-            'index.html': const DevToolsAsset.text(
-              '<html><body>shell</body></html>',
-              'text/html; charset=utf-8',
-            ),
-          },
-        ),
       );
     });
 
@@ -796,7 +735,15 @@ void main() {
       await bus.close();
     });
 
-    test('/api/devtools/requests returns the current log snapshot', () async {
+    test('handles() owns devtools/* and events paths', () {
+      expect(DevToolsApi.handles('events'), isTrue);
+      expect(DevToolsApi.handles('devtools/logs'), isTrue);
+      expect(DevToolsApi.handles('devtools/network/5'), isTrue);
+      expect(DevToolsApi.handles('health'), isFalse);
+      expect(DevToolsApi.handles('tap'), isFalse);
+    });
+
+    test('devtools/requests returns the current log snapshot', () async {
       log.record(
         method: 'GET',
         path: '/health',
@@ -805,8 +752,8 @@ void main() {
         durationMs: 1,
         remoteAddress: '127.0.0.1',
       );
-      final res = await router.handler(
-        Request('GET', Uri.parse('http://x:8889/api/devtools/requests')),
+      final res = await api.handler(
+        Request('GET', Uri.parse('http://x:8888/devtools/requests')),
       );
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
@@ -814,47 +761,20 @@ void main() {
       expect((body['entries'] as List).first['path'], '/health');
     });
 
-    test(
-      'mutating /api/* without x-turbo-devtools header is rejected',
-      () async {
-        final res = await router.handler(
-          Request(
-            'POST',
-            Uri.parse('http://x:8889/api/tap'),
-            body: jsonEncode({'x': 10, 'y': 20}),
-            headers: const {'content-type': 'application/json'},
-          ),
-        );
-        expect(res.statusCode, 403);
-      },
-    );
-
-    test('GET /api/health is proxied to the bridge router', () async {
-      final res = await router.handler(
-        Request('GET', Uri.parse('http://x:8889/api/health')),
-      );
-      expect(res.statusCode, 200);
-      final json = jsonDecode(await res.readAsString());
-      expect(json['status'], 'ok');
-    });
-
-    test('/api/devtools/logs returns app-pushed log entries', () async {
+    test('devtools/logs returns app-pushed log entries', () async {
       final sink = LogSink(bus: bus);
-      // Re-register router with the new sink so it serves it.
-      router = DevToolsRouter(
-        bridgeRouter: bridgeRouter,
+      api = DevToolsApi(
         eventBus: bus,
         requestLog: log,
         logs: sink,
         network: NetworkLog(bus: bus),
         navigation: NavigationLog(bus: bus),
-        staticHandler: DevToolsStaticHandler(assets: const {}),
       );
       sink.info('hello world', category: 'auth');
       sink.error('boom', category: 'net', error: Exception('nope'));
 
-      final res = await router.handler(
-        Request('GET', Uri.parse('http://x:8889/api/devtools/logs')),
+      final res = await api.handler(
+        Request('GET', Uri.parse('http://x:8888/devtools/logs')),
       );
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
@@ -864,16 +784,14 @@ void main() {
       expect(entries[1]['level'], 'error');
     });
 
-    test('/api/devtools/network returns app-pushed network calls', () async {
+    test('devtools/network returns app-pushed network calls', () async {
       final net = NetworkLog(bus: bus);
-      router = DevToolsRouter(
-        bridgeRouter: bridgeRouter,
+      api = DevToolsApi(
         eventBus: bus,
         requestLog: log,
         logs: LogSink(bus: bus),
         network: net,
         navigation: NavigationLog(bus: bus),
-        staticHandler: DevToolsStaticHandler(assets: const {}),
       );
       final call = net.record(
         method: 'GET',
@@ -883,61 +801,54 @@ void main() {
         responseBody: '{"id":1}',
       );
 
-      final list = await router.handler(
-        Request('GET', Uri.parse('http://x:8889/api/devtools/network')),
+      final list = await api.handler(
+        Request('GET', Uri.parse('http://x:8888/devtools/network')),
       );
       final entries =
           (jsonDecode(await list.readAsString()) as Map)['entries'] as List;
       expect(entries.length, 1);
       expect(entries.first['url'], 'https://api.example.com/users/1');
 
-      final detail = await router.handler(
-        Request(
-          'GET',
-          Uri.parse('http://x:8889/api/devtools/network/${call.id}'),
-        ),
+      final detail = await api.handler(
+        Request('GET', Uri.parse('http://x:8888/devtools/network/${call.id}')),
       );
       final d = jsonDecode(await detail.readAsString()) as Map<String, dynamic>;
       expect(d['responseBody'], '{"id":1}');
     });
 
-    test(
-      '/api/devtools/requests/:id returns full detail with bodies',
-      () async {
-        final entry = log.record(
-          method: 'POST',
-          path: '/tap',
-          query: null,
-          status: 200,
-          durationMs: 1,
-          remoteAddress: '127.0.0.1',
-          requestHeaders: {'content-type': 'application/json'},
-          requestBodyBytes: '{"x":1,"y":2}'.codeUnits,
-          responseHeaders: {'content-type': 'application/json'},
-          responseBodyBytes: '{"success":true}'.codeUnits,
-        );
+    test('devtools/requests/:id returns full detail with bodies', () async {
+      final entry = log.record(
+        method: 'POST',
+        path: '/tap',
+        query: null,
+        status: 200,
+        durationMs: 1,
+        remoteAddress: '127.0.0.1',
+        requestHeaders: {'content-type': 'application/json'},
+        requestBodyBytes: '{"x":1,"y":2}'.codeUnits,
+        responseHeaders: {'content-type': 'application/json'},
+        responseBodyBytes: '{"success":true}'.codeUnits,
+      );
 
-        final res = await router.handler(
-          Request(
-            'GET',
-            Uri.parse('http://x:8889/api/devtools/requests/${entry.id}'),
-          ),
-        );
-        expect(res.statusCode, 200);
-        final body =
-            jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-        expect(body['requestBody'], '{"x":1,"y":2}');
-        expect(body['responseBody'], '{"success":true}');
-        expect(
-          (body['responseHeaders'] as Map)['content-type'],
-          'application/json',
-        );
-      },
-    );
+      final res = await api.handler(
+        Request(
+          'GET',
+          Uri.parse('http://x:8888/devtools/requests/${entry.id}'),
+        ),
+      );
+      expect(res.statusCode, 200);
+      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+      expect(body['requestBody'], '{"x":1,"y":2}');
+      expect(body['responseBody'], '{"success":true}');
+      expect(
+        (body['responseHeaders'] as Map)['content-type'],
+        'application/json',
+      );
+    });
 
-    test('/events opens an SSE stream and pushes emitted events', () async {
-      final res = await router.handler(
-        Request('GET', Uri.parse('http://x:8889/events')),
+    test('events opens an SSE stream and pushes emitted events', () async {
+      final res = await api.handler(
+        Request('GET', Uri.parse('http://x:8888/events')),
       );
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], 'text/event-stream');
@@ -1056,14 +967,14 @@ void main() {
       expect((entries.first as Map)['url'], 'https://api.example.com/x');
     });
 
-    test('/info includes the active DevTools port when available', () async {
+    test('/info reports DevTools enabled when configured', () async {
       final withDevTools = BridgeRouter(
         screenshotService: ScreenshotService(),
         widgetTreeService: WidgetTreeService(),
         gestureService: GestureService(),
         appInfoService: _FakeAppInfoService(),
         findService: FindService(),
-        devToolsPortProvider: () => 4567,
+        devToolsEnabled: true,
       );
 
       final res = await withDevTools.handler(
@@ -1071,53 +982,22 @@ void main() {
       );
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
 
-      expect(body['devTools'], {'enabled': true, 'port': 4567});
+      expect(body['devTools'], {'enabled': true});
     });
 
-    test(
-      '/info advertises the configured projectRoot for the DevTools UI',
-      () async {
-        final withRoot = BridgeRouter(
-          screenshotService: ScreenshotService(),
-          widgetTreeService: WidgetTreeService(),
-          gestureService: GestureService(),
-          appInfoService: _FakeAppInfoService(),
-          findService: FindService(),
-          devToolsPortProvider: () => 4567,
-          projectRoot: '/Users/me/dev/my_app',
-        );
-
-        final res = await withRoot.handler(
-          Request('GET', Uri.parse('http://x:8888/info')),
-        );
-        final body =
-            jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-
-        expect(body['devTools'], {
-          'enabled': true,
-          'port': 4567,
-          'projectRoot': '/Users/me/dev/my_app',
-        });
-      },
-    );
-
-    test('/info omits projectRoot when it is blank', () async {
-      final withBlankRoot = BridgeRouter(
+    test('/info reports DevTools disabled by default', () async {
+      final withoutDevTools = BridgeRouter(
         screenshotService: ScreenshotService(),
         widgetTreeService: WidgetTreeService(),
         gestureService: GestureService(),
         appInfoService: _FakeAppInfoService(),
         findService: FindService(),
-        devToolsPortProvider: () => 4567,
-        projectRoot: '   ',
       );
-
-      final res = await withBlankRoot.handler(
+      final res = await withoutDevTools.handler(
         Request('GET', Uri.parse('http://x:8888/info')),
       );
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-
-      expect((body['devTools'] as Map).containsKey('projectRoot'), isFalse);
+      expect(body['devTools'], {'enabled': false});
     });
 
     test('/pick returns 400 when x/y are missing', () async {
@@ -1129,77 +1009,67 @@ void main() {
   });
 
   group('TurboBridge end-to-end with DevTools', () {
-    test('boots both servers and surfaces the request log', () async {
-      final bridge = await TurboBridge.start(
-        config: const BridgeConfig(
-          port: 0,
-          enableDevTools: true,
-          devToolsPort: 0,
-        ),
-      );
-
-      try {
-        expect(bridge.port, isNotNull);
-        expect(bridge.devToolsPort, isNotNull);
-
-        // Hit the JSON-API port — should be recorded in the log.
-        final client = HttpClient();
-        final infoReq = await client.getUrl(
-          Uri.parse('http://127.0.0.1:${bridge.port}/info'),
+    test(
+      'serves API + DevTools data on one port and logs requests',
+      () async {
+        final bridge = await TurboBridge.start(
+          config: const BridgeConfig(port: 0, enableDevTools: true),
         );
-        final infoResp = await infoReq.close();
-        expect(infoResp.statusCode, 200);
-        final infoBody =
-            jsonDecode(await infoResp.transform(utf8.decoder).join())
-                as Map<String, dynamic>;
-        expect(infoBody['devTools'], {
-          'enabled': true,
-          'port': bridge.devToolsPort,
-        });
 
-        final req = await client.getUrl(
-          Uri.parse('http://127.0.0.1:${bridge.port}/health'),
-        );
-        final resp = await req.close();
-        expect(resp.statusCode, 200);
-        await resp.drain<void>();
+        try {
+          expect(bridge.port, isNotNull);
 
-        // Give the middleware microtask a chance to log.
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        expect(bridge.requestLog.length, greaterThanOrEqualTo(1));
+          // Hit the JSON-API port — should be recorded in the log.
+          final client = HttpClient();
+          final infoReq = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${bridge.port}/info'),
+          );
+          final infoResp = await infoReq.close();
+          expect(infoResp.statusCode, 200);
+          final infoBody =
+              jsonDecode(await infoResp.transform(utf8.decoder).join())
+                  as Map<String, dynamic>;
+          expect(infoBody['devTools'], {'enabled': true});
 
-        // The DevTools log endpoint reflects the same data.
-        final devReq = await client.getUrl(
-          Uri.parse(
-            'http://127.0.0.1:${bridge.devToolsPort}/api/devtools/requests',
-          ),
-        );
-        final devResp = await devReq.close();
-        final body =
-            jsonDecode(await devResp.transform(utf8.decoder).join()) as Map;
-        expect((body['entries'] as List), isNotEmpty);
+          final req = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${bridge.port}/health'),
+          );
+          final resp = await req.close();
+          expect(resp.statusCode, 200);
+          await resp.drain<void>();
 
-        // The DevTools UI shell is served from /.
-        final indexReq = await client.getUrl(
-          Uri.parse('http://127.0.0.1:${bridge.devToolsPort}/'),
-        );
-        final indexResp = await indexReq.close();
-        expect(indexResp.statusCode, 200);
-        expect(
-          indexResp.headers.value('content-type'),
-          startsWith('text/html'),
-        );
-        final indexBody = await indexResp.transform(utf8.decoder).join();
-        expect(indexBody, contains('Turbo Bridge'));
-        // The bundle now inlines its JS — there should be a <script>
-        // block in the shell.
-        expect(indexBody, contains('<script'));
+          // Give the middleware microtask a chance to log.
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          expect(bridge.requestLog.length, greaterThanOrEqualTo(1));
 
-        client.close(force: true);
-      } finally {
-        await bridge.stop();
-      }
-    }, tags: ['integration']);
+          // The DevTools data endpoints live on the same port now.
+          final devReq = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${bridge.port}/devtools/requests'),
+          );
+          final devResp = await devReq.close();
+          final body =
+              jsonDecode(await devResp.transform(utf8.decoder).join()) as Map;
+          expect((body['entries'] as List), isNotEmpty);
+
+          // The SSE stream is available on the same port.
+          final eventsReq = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${bridge.port}/events'),
+          );
+          final eventsResp = await eventsReq.close();
+          expect(eventsResp.statusCode, 200);
+          expect(
+            eventsResp.headers.value('content-type'),
+            startsWith('text/event-stream'),
+          );
+          eventsReq.abort();
+
+          client.close(force: true);
+        } finally {
+          await bridge.stop();
+        }
+      },
+      tags: ['integration'],
+    );
   });
 }
 

@@ -32,6 +32,9 @@ benchmark_results.json
 # Generated
 *.g.dart
 *.freezed.dart
+# Exception: the embedded DevTools UI bundle is a committed/published
+# artifact (consumers can't run the JS build to regenerate it).
+!packages/turbo_bridge_mcp/lib/src/devtools_bundle.g.dart
 
 # Flutter metadata
 .metadata

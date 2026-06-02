@@ -16,9 +16,14 @@ topics:
 environment:
   sdk: ^3.5.0
 
+executables:
+  turbo_bridge_mcp:
+  turbo_bridge_devtools: devtools
+
 dependencies:
   args: ^2.4.0
   mcp_dart: ^2.2.0
+  shelf: ^1.4.0
   turbo_bridge_client: ^0.2.0
 
 dev_dependencies:

@@ -70,29 +70,17 @@ interface State {
   // back on every change.
   settings: PersistedSettings;
   settingsOpen: boolean;
-  // Project root advertised by the bridge via `/info` (from the
-  // `TURBO_BRIDGE_PROJECT_ROOT` dart-define). Used to auto-seed a package's
-  // root the first time it's seen, so source links resolve with zero setup.
-  serverProjectRoot: string | null;
+  // Liveness of the bridge connection, driven by the `/events` SSE stream.
+  // The UI is now served by the host, so it loads even when the device is
+  // gone — this reflects whether the device behind the proxy is reachable.
+  connection: 'connecting' | 'live' | 'offline';
+  // Whether the connection-help popup (anchored to the indicator) is open.
+  connectionPopupOpen: boolean;
 }
 
 interface PersistedSettings {
   /** Editor to open `vscode://`-style links with. */
   ide: IdeKey;
-  /**
-   * Absolute path to the Flutter project on *this* (the developer's)
-   * machine, keyed by app package name — e.g.
-   * `{ my_app: '/Users/me/dev/my_app' }`. Used to turn `package:` source
-   * locations into ⌘-clickable file links: `package:<app>/x.dart` resolves
-   * to `<root>/lib/x.dart`. Needed on real devices, where the app can't
-   * resolve `package:` URIs itself (DDS blocks in-app VM service access).
-   *
-   * Keyed per package so the right root is restored automatically when you
-   * switch between projects. Seeded automatically from the bridge's
-   * advertised `projectRoot` (see `TURBO_BRIDGE_PROJECT_ROOT`) the first
-   * time a package is seen.
-   */
-  projectRoots: Record<string, string>;
 }
 
 type IdeKey = 'vscode' | 'vscode-insiders' | 'cursor' | 'idea' | 'zed' | 'none';
@@ -144,34 +132,16 @@ const IDES: IdeDef[] = [
 
 const SETTINGS_STORAGE_KEY = 'turbo_bridge_devtools_settings_v1';
 
-/// Bucket in `projectRoots` for a root that applies to any package without
-/// its own entry (e.g. a migrated legacy single root, or a manually set
-/// "all projects" default).
-const GLOBAL_ROOT_KEY = '*';
-
 function loadSettings(): PersistedSettings {
-  const fallback: PersistedSettings = { ide: 'vscode', projectRoots: {} };
+  const fallback: PersistedSettings = { ide: 'vscode' };
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Partial<PersistedSettings> & {
-      // Legacy single-root field (pre per-package map).
-      projectRoot?: unknown;
-    };
+    const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
     const ide = parsed.ide && IDES.some((i) => i.key === parsed.ide)
       ? (parsed.ide as IdeKey)
       : fallback.ide;
-    const projectRoots: Record<string, string> = {};
-    if (parsed.projectRoots && typeof parsed.projectRoots === 'object') {
-      for (const [k, v] of Object.entries(parsed.projectRoots)) {
-        if (typeof v === 'string' && v) projectRoots[k] = v;
-      }
-    }
-    // Migrate a legacy single root into a global default bucket.
-    if (typeof parsed.projectRoot === 'string' && parsed.projectRoot) {
-      projectRoots[GLOBAL_ROOT_KEY] ??= parsed.projectRoot;
-    }
-    return { ide, projectRoots };
+    return { ide };
   } catch {
     return fallback;
   }
@@ -210,7 +180,8 @@ const state: State = {
   modalTab: 'request',
   settings: loadSettings(),
   settingsOpen: false,
-  serverProjectRoot: null,
+  connection: 'connecting',
+  connectionPopupOpen: false,
 };
 
 // ============================================================
@@ -422,6 +393,7 @@ interface UI {
     showAllBtn: HTMLButtonElement;
     followBtn: HTMLButtonElement;
     retentionSelect: HTMLSelectElement;
+    indicator: HTMLElement;
   };
 
   // Timeline labels + tracks.
@@ -446,6 +418,9 @@ interface UI {
 
   // Settings popup layer — anchored top-right under the gear.
   settingsLayerEl: HTMLElement;
+
+  // Connection-help popup layer — anchored under the status indicator.
+  connectionLayerEl: HTMLElement;
 }
 
 let ui: UI | null = null;
@@ -537,11 +512,17 @@ function mount(root: HTMLElement) {
   retentionWrap.appendChild(retentionSelect);
   headerEl.appendChild(retentionWrap);
 
-  const dev = (import.meta as any).env?.DEV;
-  const indicator = el('div', 'flex items-center gap-2 text-xs text-zinc-400');
-  indicator.innerHTML = dev
-    ? '<span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>mock device'
-    : '<span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>live';
+  // Connection indicator — content is driven by updateHeader() from
+  // state.connection (or a fixed "mock device" badge in dev). Click to open
+  // the connection-help popup.
+  const indicator = el(
+    'button',
+    'flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer select-none',
+  );
+  indicator.addEventListener('click', () => {
+    state.connectionPopupOpen = !state.connectionPopupOpen;
+    scheduleUpdate();
+  });
   headerEl.appendChild(indicator);
 
   // Gear button — opens the settings popup.
@@ -669,6 +650,9 @@ function mount(root: HTMLElement) {
   const settingsLayerEl = el('div', 'hidden');
   root.appendChild(settingsLayerEl);
 
+  const connectionLayerEl = el('div', 'hidden');
+  root.appendChild(connectionLayerEl);
+
   ui = {
     root,
     header: {
@@ -679,6 +663,7 @@ function mount(root: HTMLElement) {
       showAllBtn,
       followBtn,
       retentionSelect,
+      indicator,
     },
     labelEls,
     trackEls,
@@ -692,6 +677,7 @@ function mount(root: HTMLElement) {
     eventRowsById: new Map(),
     modalLayerEl,
     settingsLayerEl,
+    connectionLayerEl,
   };
 }
 
@@ -718,6 +704,7 @@ function update() {
   updateEventList();
   updateModal();
   updateSettings();
+  updateConnection();
 }
 
 // ---------- Header ----------
@@ -793,7 +780,24 @@ function updateHeader() {
   if (h.retentionSelect.value !== wantVal && document.activeElement !== h.retentionSelect) {
     h.retentionSelect.value = wantVal;
   }
+
+  // Connection indicator. In dev the mock device is always "connected".
+  const dev = (import.meta as any).env?.DEV;
+  const conn = dev ? 'mock' : state.connection;
+  const wantIndicator = INDICATORS[conn];
+  if (h.indicator.innerHTML !== wantIndicator) {
+    h.indicator.innerHTML = wantIndicator;
+  }
 }
+
+const INDICATORS: Record<'mock' | 'connecting' | 'live' | 'offline', string> = {
+  mock: '<span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>mock device',
+  live: '<span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>live',
+  connecting:
+    '<span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>connecting…',
+  offline:
+    '<span class="size-1.5 rounded-full bg-rose-500"></span><span class="text-rose-300">disconnected</span>',
+};
 
 // ---------- Row labels ----------
 
@@ -1304,83 +1308,42 @@ function renderModalBody(ev: TimelineEvent): HTMLElement {
   return wrap;
 }
 
-/// Render the call-site link on a log event. ⌘-click opens the
-/// configured editor (settings popup, top-right). Falls back to a
-/// plain "copy path" button when:
-/// - the source is a `package:` URI (we'd need pubspec resolution to
-///   turn it into an absolute file path)
-/// - the user selected "No deep link"
-/// The most frequently-seen `package:<name>/` prefix among log source
-/// locations, taken to be the app's own package (whose root is the
-/// configured project root). Cached and recomputed only as new events
-/// arrive, so per-link rendering stays cheap.
-let appPackageCache: { eventCount: number; pkg: string | null } | null = null;
-function detectAppPackage(): string | null {
-  if (appPackageCache && appPackageCache.eventCount === state.events.length) {
-    return appPackageCache.pkg;
-  }
-  const counts = new Map<string, number>();
-  for (const ev of state.events) {
-    const f = ev.raw['sourceFile'];
-    if (typeof f !== 'string') continue;
-    const m = /^package:([^/]+)\//.exec(f);
-    if (!m) continue;
-    counts.set(m[1]!, (counts.get(m[1]!) ?? 0) + 1);
-  }
-  let pkg: string | null = null;
-  let best = 0;
-  for (const [name, n] of counts) {
-    if (n > best) {
-      best = n;
-      pkg = name;
+/// Package name -> absolute `lib/` directory (with trailing separator),
+/// fetched once from the host's `/__host/packages` endpoint, which reads the
+/// project's `package_config.json`. Lets us turn `package:foo/bar.dart` into a
+/// ⌘-clickable file path for *any* package, with zero configuration.
+let packageLibDirs: Record<string, string> = {};
+
+async function loadPackageMap() {
+  try {
+    const res = await fetch('__host/packages');
+    if (!res.ok) return;
+    const json = (await res.json()) as { packages?: Record<string, string> };
+    if (json.packages && typeof json.packages === 'object') {
+      packageLibDirs = json.packages;
+      scheduleUpdate();
     }
+  } catch {
+    // No host control endpoint (e.g. the mock dev server) — `package:` links
+    // simply stay non-clickable, which is fine.
   }
-  appPackageCache = { eventCount: state.events.length, pkg };
-  return pkg;
 }
 
-/// The project root to use for the app's own package: an explicit
-/// per-package entry, else the global default, else the bridge-advertised
-/// root (which we then persist for this package so it sticks and can be
-/// edited). Returns '' when nothing is known yet.
-function activeProjectRoot(): string {
-  const app = detectAppPackage();
-  const roots = state.settings.projectRoots;
-  if (app && roots[app]) return roots[app]!;
-  if (roots[GLOBAL_ROOT_KEY]) return roots[GLOBAL_ROOT_KEY]!;
-  // Auto-seed from the bridge's advertised root the first time we can
-  // attribute it to a concrete package.
-  if (app && state.serverProjectRoot) {
-    setProjectRoot(app, state.serverProjectRoot);
-    return state.serverProjectRoot;
-  }
-  return state.serverProjectRoot ?? '';
-}
-
-/// Persist the project root for [pkg] (or clear it when [root] is empty).
-function setProjectRoot(pkg: string, root: string) {
-  const next = root.trim().replace(/[/\\]+$/, '');
-  const roots = state.settings.projectRoots;
-  if (next) roots[pkg] = next;
-  else delete roots[pkg];
-  saveSettings(state.settings);
-}
-
-/// Resolve a `package:<app>/<rest>` URI to an absolute file path using the
-/// active project root: `<root>/lib/<rest>`. Only the app's own package
-/// resolves (other packages — e.g. path dependencies — would need their own
-/// roots, which we don't know here). Returns null when there's no root, the
-/// URI isn't a package URI, or it isn't the app package.
+/// Resolve a `package:<name>/<rest>` URI to an absolute file path via the
+/// host-provided package map (`<libDir><rest>`). Returns null when the URI
+/// isn't a package URI, or its package isn't in the project's package config.
 function resolvePackageUri(file: string): string | null {
-  const root = activeProjectRoot().replace(/[/\\]+$/, '');
-  if (!root) return null;
   const m = /^package:([^/]+)\/(.+)$/.exec(file);
   if (!m) return null;
-  const app = detectAppPackage();
-  if (!app || m[1] !== app) return null;
-  return `${root}/lib/${m[2]}`;
+  const libDir = packageLibDirs[m[1]!];
+  if (!libDir) return null;
+  return `${libDir}${m[2]}`;
 }
 
+/// Render the call-site link on a log event. ⌘-click opens the configured
+/// editor (settings popup, top-right). Falls back to a plain "copy path"
+/// button when the source is a `package:` URI we can't resolve (its package
+/// isn't in the project's package config) or "No deep link" is selected.
 function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
   const file = raw['sourceFile'];
   const line = raw['sourceLine'];
@@ -1440,9 +1403,7 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
       `${escapeHtml(short)}:${line}:${col}`,
     );
     span.title = file.startsWith('package:')
-      ? (activeProjectRoot()
-          ? `${file}:${line}:${col} — only the app's own package resolves to a file path; this is from another package.`
-          : `${file}:${line}:${col} — set "Project root" in settings to open package: links in your editor.`)
+      ? `${file}:${line}:${col} — this package isn't in the project's package_config.json, so it can't be resolved to a file path.`
       : `${file}:${line}:${col}`;
     wrap.appendChild(span);
   }
@@ -1850,66 +1811,150 @@ function renderSettings(): HTMLElement {
     ),
   );
 
-  // Project root — enables ⌘-click for `package:` source links coming from
-  // the app's own package. Required on real devices, where the app can't
-  // resolve `package:` URIs itself (DDS blocks in-app VM service access).
-  // Auto-detected from the app package + the bridge's advertised root; the
-  // field below is the per-package override, persisted in this browser.
-  const detected = detectAppPackage();
-  const rootKey = detected ?? GLOBAL_ROOT_KEY;
-  const activeRoot = activeProjectRoot();
-  const isAuto =
-    !!detected &&
-    !state.settings.projectRoots[detected] &&
-    !state.settings.projectRoots[GLOBAL_ROOT_KEY] &&
-    !!activeRoot;
+  backdrop.appendChild(panel);
+  return backdrop;
+}
 
-  const rootHeader = el('div', 'flex items-center gap-2 mt-4 mb-1.5');
-  rootHeader.appendChild(
+// ---------- Connection popup ----------
+
+let connectionSig: string | null = null;
+let reconnectBusy = false;
+let reconnectMessage: string | null = null;
+
+function updateConnection() {
+  const layer = ui!.connectionLayerEl;
+  if (!state.connectionPopupOpen) {
+    if (connectionSig !== null) {
+      layer.replaceChildren();
+      layer.classList.add('hidden');
+      connectionSig = null;
+    }
+    return;
+  }
+  const dev = (import.meta as any).env?.DEV;
+  const sig = `${dev ? 'dev' : state.connection}|${reconnectBusy}|${reconnectMessage ?? ''}`;
+  if (sig !== connectionSig) {
+    layer.replaceChildren(renderConnectionPopup(!!dev));
+    connectionSig = sig;
+  }
+  layer.classList.remove('hidden');
+}
+
+async function doReconnect() {
+  reconnectBusy = true;
+  reconnectMessage = null;
+  scheduleUpdate();
+  try {
+    const res = await fetch('__host/reconnect', { method: 'POST' });
+    const j = (await res.json().catch(() => ({}))) as { message?: string };
+    reconnectMessage = j.message ?? `Host responded ${res.status}.`;
+    // Try the event stream again immediately rather than waiting for the
+    // 2s auto-retry.
+    connectEvents();
+  } catch {
+    reconnectMessage =
+      'Host control endpoint unreachable. Serve the UI via ' +
+      '`turbo_bridge_devtools` or the MCP server (not a bare static host).';
+  } finally {
+    reconnectBusy = false;
+    scheduleUpdate();
+  }
+}
+
+function renderConnectionPopup(dev: boolean): HTMLElement {
+  const backdrop = el('div', 'fixed inset-0 z-40 cursor-default');
+  backdrop.addEventListener('click', () => {
+    state.connectionPopupOpen = false;
+    scheduleUpdate();
+  });
+
+  const panel = el(
+    'div',
+    'absolute top-12 right-3 z-50 w-[min(380px,calc(100vw-1.5rem))] bg-zinc-950 rounded-lg ring-1 ring-zinc-800 shadow-2xl p-4',
+  );
+  panel.addEventListener('click', (e) => e.stopPropagation());
+
+  const header = el('div', 'flex items-center justify-between mb-3');
+  header.appendChild(
     el(
-      'label',
-      'block text-[11px] uppercase tracking-wider text-zinc-500',
-      detected ? `Project root · ${escapeHtml(detected)}` : 'Project root',
+      'h3',
+      'text-[11px] uppercase tracking-wider text-zinc-400 font-semibold',
+      'Connection',
     ),
   );
-  if (isAuto) {
-    rootHeader.appendChild(
+  const closeBtn = el(
+    'button',
+    'text-zinc-500 hover:text-zinc-200 rounded-md p-1 -mr-1',
+    '<svg viewBox="0 0 16 16" class="size-3.5"><path fill="currentColor" d="M4.3 3.3a1 1 0 011.4 0L8 5.6l2.3-2.3a1 1 0 111.4 1.4L9.4 7l2.3 2.3a1 1 0 11-1.4 1.4L8 8.4 5.7 10.7a1 1 0 01-1.4-1.4L6.6 7 4.3 4.7a1 1 0 010-1.4z"/></svg>',
+  );
+  closeBtn.addEventListener('click', () => {
+    state.connectionPopupOpen = false;
+    scheduleUpdate();
+  });
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  if (dev) {
+    panel.appendChild(
       el(
-        'span',
-        'text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 ring-1 ring-emerald-900',
-        'auto',
+        'p',
+        'text-xs text-zinc-400 leading-relaxed',
+        'Running against the built-in <span class="text-amber-300">mock device</span> (dev server). No real bridge is connected.',
+      ),
+    );
+    backdrop.appendChild(panel);
+    return backdrop;
+  }
+
+  const live = state.connection === 'live';
+  const statusRow = el('div', 'flex items-center gap-2 text-sm mb-3');
+  statusRow.innerHTML = live
+    ? '<span class="size-2 rounded-full bg-emerald-400"></span><span class="text-zinc-200">Connected to the app bridge</span>'
+    : state.connection === 'connecting'
+      ? '<span class="size-2 rounded-full bg-amber-400 animate-pulse"></span><span class="text-zinc-200">Connecting…</span>'
+      : '<span class="size-2 rounded-full bg-rose-500"></span><span class="text-rose-300">Disconnected from the app bridge</span>';
+  panel.appendChild(statusRow);
+
+  if (!live) {
+    const tips = el('ul', 'text-[11px] text-zinc-400 leading-relaxed list-disc pl-4 space-y-1');
+    tips.innerHTML = [
+      'Make sure the app is running with <code class="text-zinc-300">BridgeConfig(enableDevTools: true)</code>.',
+      'On a <strong>real Android device</strong>, the bridge needs <code class="text-zinc-300">adb forward</code> — reconnecting the device tears it down. Use the button below to re-establish it.',
+      'On a <strong>simulator / desktop</strong>, the bridge should be reachable on localhost automatically.',
+    ]
+      .map((t) => `<li>${t}</li>`)
+      .join('');
+    panel.appendChild(tips);
+
+    const actions = el('div', 'flex items-center gap-2 mt-3');
+    const reconnectBtn = el(
+      'button',
+      'h-8 px-3 rounded-md text-xs ring-1 ring-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 disabled:opacity-50 disabled:cursor-default',
+      reconnectBusy ? 'Reconnecting…' : 'Reconnect via adb',
+    ) as HTMLButtonElement;
+    reconnectBtn.disabled = reconnectBusy;
+    reconnectBtn.addEventListener('click', () => void doReconnect());
+    actions.appendChild(reconnectBtn);
+
+    const retryBtn = el(
+      'button',
+      'h-8 px-3 rounded-md text-xs ring-1 ring-zinc-700 text-zinc-300 hover:text-zinc-100 hover:ring-zinc-500',
+      'Retry stream',
+    );
+    retryBtn.addEventListener('click', () => connectEvents());
+    actions.appendChild(retryBtn);
+    panel.appendChild(actions);
+  }
+
+  if (reconnectMessage) {
+    panel.appendChild(
+      el(
+        'p',
+        'mt-3 text-[11px] text-zinc-400 leading-relaxed border-t border-zinc-800 pt-2',
+        escapeHtml(reconnectMessage),
       ),
     );
   }
-  panel.appendChild(rootHeader);
-
-  const rootInput = el(
-    'input',
-    'w-full h-9 px-3 rounded-md ring-1 ring-zinc-700 bg-zinc-900 text-zinc-200 text-sm font-mono hover:ring-zinc-500 focus:outline-none focus:ring-zinc-400',
-  ) as HTMLInputElement;
-  rootInput.type = 'text';
-  rootInput.spellcheck = false;
-  rootInput.placeholder = state.serverProjectRoot ?? '/Users/me/dev/my_app';
-  rootInput.value = activeRoot;
-  const commitRoot = () => {
-    const next = rootInput.value.trim().replace(/[/\\]+$/, '');
-    if (next === activeRoot.replace(/[/\\]+$/, '')) return;
-    setProjectRoot(rootKey, next);
-    scheduleUpdate();
-  };
-  rootInput.addEventListener('change', commitRoot);
-  rootInput.addEventListener('blur', commitRoot);
-  panel.appendChild(rootInput);
-
-  panel.appendChild(
-    el(
-      'p',
-      'mt-2 text-[11px] text-zinc-500 leading-relaxed',
-      isAuto
-        ? `Auto-detected from the app's <code class="text-zinc-400">TURBO_BRIDGE_PROJECT_ROOT</code>. Opens <code class="text-zinc-400">package:${escapeHtml(detected!)}/…</code> links (→ <code class="text-zinc-400">&lt;root&gt;/lib/…</code>). Edit to override; saved per package in this browser.`
-        : `Absolute path to your Flutter project on this machine. Opens <code class="text-zinc-400">package:${escapeHtml(detected ?? '<app>')}/…</code> source links (→ <code class="text-zinc-400">&lt;root&gt;/lib/…</code>). Set the <code class="text-zinc-400">TURBO_BRIDGE_PROJECT_ROOT</code> dart-define to populate this automatically.`,
-    ),
-  );
 
   backdrop.appendChild(panel);
   return backdrop;
@@ -2097,19 +2142,12 @@ setInterval(() => {
 
 async function loadInitial() {
   try {
-    const [bridge, network, logs, nav, info] = await Promise.all([
+    const [bridge, network, logs, nav] = await Promise.all([
       api<{ entries: any[] }>('devtools/requests'),
       api<{ entries: any[] }>('devtools/network'),
       api<{ entries: any[] }>('devtools/logs'),
       api<{ entries: any[] }>('devtools/navigation').catch(() => ({ entries: [] })),
-      api<{ devTools?: { projectRoot?: string } }>('info').catch(
-        (): { devTools?: { projectRoot?: string } } => ({}),
-      ),
     ]);
-    const advertised = info.devTools?.projectRoot;
-    if (typeof advertised === 'string' && advertised.trim()) {
-      state.serverProjectRoot = advertised.trim().replace(/[/\\]+$/, '');
-    }
     bridge.entries.forEach((e) => upsert(fromRequest(e)));
     network.entries.forEach((e) => upsert(fromNetwork(e)));
     logs.entries.forEach((e) => upsert(fromLog(e)));
@@ -2121,8 +2159,34 @@ async function loadInitial() {
   }
 }
 
+let currentEs: EventSource | null = null;
+let reconnectTimer: number | undefined;
+
 function connectEvents() {
+  // Tear down any existing stream / pending retry so manual "Retry" and the
+  // 2s auto-retry can't stack multiple EventSources.
+  if (reconnectTimer !== undefined) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+  }
+  currentEs?.close();
+
   const es = new EventSource('events');
+  currentEs = es;
+  if (state.connection !== 'live') {
+    state.connection = 'connecting';
+    scheduleUpdate();
+  }
+  es.onopen = () => {
+    const wasOffline = state.connection === 'offline';
+    if (state.connection !== 'live') {
+      state.connection = 'live';
+      scheduleUpdate();
+    }
+    // After a reconnect, re-sync the current snapshot — the SSE stream only
+    // carries new events, so existing logs/requests would otherwise be lost.
+    if (wasOffline) void loadInitial();
+  };
   const handlers: Record<string, (p: any) => TimelineEvent> = {
     request: fromRequest,
     network: fromNetwork,
@@ -2146,8 +2210,15 @@ function connectEvents() {
     });
   }
   es.onerror = () => {
-    setTimeout(connectEvents, 2000);
+    // Ignore errors from a stream we've already superseded.
+    if (currentEs !== es) return;
+    if (state.connection !== 'offline') {
+      state.connection = 'offline';
+      scheduleUpdate();
+    }
     es.close();
+    currentEs = null;
+    reconnectTimer = setTimeout(connectEvents, 2000) as unknown as number;
   };
 }
 
@@ -2161,6 +2232,7 @@ function boot() {
   mount(mountEl);
   update();
   void loadInitial();
+  void loadPackageMap();
   connectEvents();
   ensureFollowTicker();
 }

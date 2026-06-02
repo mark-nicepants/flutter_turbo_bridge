@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:turbo_bridge_client/turbo_bridge_client.dart';
-import 'package:turbo_bridge_mcp/src/adb_forwarding.dart';
 import 'package:turbo_bridge_mcp/turbo_bridge_mcp.dart';
 
 void main(List<String> arguments) async {
@@ -25,6 +24,21 @@ void main(List<String> arguments) async {
       help: 'Dart VM Service URI (optional, for evaluation)',
     )
     ..addFlag(
+      'devtools',
+      defaultsTo: true,
+      help: 'Serve the DevTools web UI on this host',
+    )
+    ..addOption(
+      'devtools-port',
+      defaultsTo: '8889',
+      help: 'Local port to serve the DevTools UI on',
+    )
+    ..addOption(
+      'project-root',
+      help: 'Flutter project dir for resolving package: source links '
+          '(defaults to the current directory)',
+    )
+    ..addFlag(
       'help',
       negatable: false,
       help: 'Show usage',
@@ -43,11 +57,8 @@ void main(List<String> arguments) async {
   final port = int.parse(results.option('bridge-port')!);
   final vmUri = results.option('vm-uri');
 
-  // Auto-detect: try direct connection, fall back to ADB forwarding
-  final forwarding = await ensureBridgeAndDevToolsReachable(
-    host: host,
-    bridgePort: port,
-  );
+  // Auto-detect: try direct connection, fall back to ADB forwarding.
+  final forwarding = await ensureBridgeReachable(host: host, bridgePort: port);
 
   // Create the client
   final TurboBridgeClient client;
@@ -67,19 +78,42 @@ void main(List<String> arguments) async {
   final transport = StdioServerTransport();
   await server.connect(transport);
 
+  // Serve the DevTools UI on the host (no auto-open — the agent may
+  // reconnect often; the URL is logged instead).
+  DevToolsHostServer? devTools;
+  if (results.flag('devtools')) {
+    final devToolsPort = int.parse(results.option('devtools-port')!);
+    devTools = DevToolsHostServer(
+      bridgeHost: host,
+      bridgePort: port,
+      projectRoot: results.option('project-root'),
+    );
+    try {
+      final bound = await devTools.start(port: devToolsPort);
+      stderr.writeln(
+        'Turbo Bridge DevTools UI ready at http://localhost:$bound/',
+      );
+    } catch (e) {
+      stderr.writeln('DevTools UI failed to start on port $devToolsPort: $e');
+      devTools = null;
+    }
+  }
+
   final adbInfo = forwarding.summarySuffix;
   stderr
       .writeln('Turbo Bridge MCP server started (bridge=$host:$port$adbInfo)');
 
-  // Clean up ADB forwarding on exit
-  if (forwarding.hasForwarding) {
-    ProcessSignal.sigint.watch().listen((_) async {
+  // Clean up on exit.
+  Future<void> shutdown() async {
+    await devTools?.stop();
+    if (forwarding.hasForwarding) {
       await forwarding.cleanup();
-      exit(0);
-    });
-    ProcessSignal.sigterm.watch().listen((_) async {
-      await forwarding.cleanup();
-      exit(0);
-    });
+    }
+    exit(0);
+  }
+
+  if (forwarding.hasForwarding || devTools != null) {
+    ProcessSignal.sigint.watch().listen((_) => shutdown());
+    ProcessSignal.sigterm.watch().listen((_) => shutdown());
   }
 }

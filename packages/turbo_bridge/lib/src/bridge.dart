@@ -7,13 +7,12 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
 import 'bridge_config.dart';
-import 'devtools/devtools_server.dart';
+import 'devtools/devtools_api.dart';
 import 'devtools/event_bus.dart';
 import 'devtools/log_sink.dart';
 import 'devtools/navigation_log.dart';
 import 'devtools/network_log.dart';
 import 'devtools/request_log.dart';
-import 'devtools/web_assets.dart';
 import 'server/router.dart';
 import 'services/app_info_service.dart';
 import 'services/find_service.dart';
@@ -97,17 +96,12 @@ class TurboBridge {
   late final NavigationLog navigation;
 
   HttpServer? _server;
-  DevToolsServer? _devToolsServer;
 
   /// Whether the server is currently running.
   bool get isRunning => _server != null;
 
   /// The actual port the server is listening on.
   int? get port => _server?.port;
-
-  /// The actual DevTools port, or null when DevTools is disabled or
-  /// failed to bind.
-  int? get devToolsPort => _devToolsServer?.boundPort;
 
   /// Start the Turbo Bridge server.
   ///
@@ -176,33 +170,46 @@ class TurboBridge {
       logs: logs,
       network: network,
       includeTimingHeaders: config.includeTimingHeaders,
-      devToolsPortProvider: () => _devToolsServer?.boundPort,
-      projectRoot: config.projectRoot,
+      devToolsEnabled: config.enableDevTools,
     );
 
-    final handler = const shelf.Pipeline()
+    // The main JSON API, wrapped in DevTools instrumentation (request log +
+    // event emission). Body buffering here would break SSE, so the DevTools
+    // data + `events` endpoints are routed *before* this middleware.
+    final instrumentedBridge = const shelf.Pipeline()
         .addMiddleware(shelf.logRequests())
         .addMiddleware(_devToolsInstrumentation())
         .addHandler(router.handler);
 
-    _server = await shelf_io.serve(handler, config.host, config.port);
-    debugPrint(
-      'TurboBridge listening on http://${config.host}:${_server!.port}',
-    );
-
+    final shelf.Handler handler;
     if (config.enableDevTools) {
-      final webAssets = await DevToolsWebAssetLoader.load();
-      _devToolsServer = DevToolsServer.create(
-        config: config,
-        bridgeRouter: router,
+      final devTools = DevToolsApi(
         eventBus: eventBus,
         requestLog: requestLog,
         logs: logs,
         network: network,
         navigation: navigation,
-        webAssets: webAssets,
       );
-      await _devToolsServer!.start();
+      handler = (shelf.Request request) {
+        if (DevToolsApi.handles(request.url.path)) {
+          return devTools.handler(request);
+        }
+        return instrumentedBridge(request);
+      };
+    } else {
+      handler = instrumentedBridge;
+    }
+
+    _server = await shelf_io.serve(handler, config.host, config.port);
+    debugPrint(
+      'TurboBridge listening on http://${config.host}:${_server!.port}',
+    );
+    if (config.enableDevTools) {
+      debugPrint(
+        '[turbo_bridge] DevTools endpoints enabled on this port. '
+        'Open the UI with the turbo_bridge_devtools host server '
+        '(e.g. `dart run turbo_bridge_mcp:devtools`).',
+      );
     }
   }
 
@@ -288,8 +295,6 @@ class TurboBridge {
 
   /// Stop the server and clean up resources.
   Future<void> stop() async {
-    await _devToolsServer?.stop();
-    _devToolsServer = null;
     await eventBus.close();
     await _server?.close(force: true);
     _server = null;

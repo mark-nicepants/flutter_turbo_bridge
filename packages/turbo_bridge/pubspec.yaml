@@ -38,7 +38,3 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.0
-
-flutter:
-  assets:
-    - lib/src/devtools/web/index.html

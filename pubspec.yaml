@@ -47,9 +47,11 @@ melos:
       run: dart format --line-length 80 --set-exit-if-changed .
     build:devtools:
       description: |
-        Rebuild the DevTools web bundle (Vite + TS + Tailwind) into
-        packages/turbo_bridge/lib/src/devtools/web/index.html. Run this
-        after editing files under packages/turbo_bridge/devtools_ui/.
+        Rebuild the DevTools web bundle (Vite + TS + Tailwind) and embed it
+        into packages/turbo_bridge_mcp/lib/src/devtools_bundle.g.dart (served
+        by the host DevTools server). Run after editing files under
+        packages/turbo_bridge/devtools_ui/.
       run: |
-        cd packages/turbo_bridge/devtools_ui && \
-          npm ci --silent && npm run build
+        cd packages/turbo_bridge/devtools_ui && npm ci --silent && npm run build && \
+          cd "$MELOS_ROOT_PATH" && \
+          dart run packages/turbo_bridge_mcp/tool/embed_devtools.dart
