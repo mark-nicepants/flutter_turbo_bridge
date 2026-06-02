@@ -169,7 +169,7 @@ const state: State = {
   windowStart: Date.now() - DEFAULT_WINDOW_MS,
   windowDuration: DEFAULT_WINDOW_MS,
   follow: true,
-  retentionMs: 30_000,
+  retentionMs: 5 * 60_000,
   modalEvent: null,
   modalTab: 'request',
   settings: loadSettings(),
@@ -971,15 +971,22 @@ function updateMinimap() {
   const viewportEl = ui!.minimapViewportEl;
   const cache = ui!.minimapMarksById;
 
+  // The minimap's scale follows the retention window: if "keep" is 5m
+  // it always spans 5 minutes ending at "now", so the bar represents
+  // the full history that will be kept and the viewport rectangle
+  // glides predictably as time passes. For ∞ retention we fall back
+  // to the actual event range so a long-running session doesn't paint
+  // an unbounded ruler.
   const { min, max } = fullRange();
-  // Extend the minimap's right edge to include the live window. Without
-  // this, the right edge only advances when a new event arrives, so the
-  // viewport rectangle stalls against the wall between events while the
-  // main timeline keeps gliding.
-  const effectiveMax = Math.max(max, windowEnd());
-  const padding = Math.max((effectiveMax - min) * 0.02, 200);
-  minimapMStart = min - padding;
-  minimapMDur = Math.max(effectiveMax - min + padding * 2, 1000);
+  const liveEdge = Math.max(windowEnd(), max);
+  if (state.retentionMs > 0) {
+    minimapMDur = state.retentionMs;
+    minimapMStart = liveEdge - minimapMDur;
+  } else {
+    const padding = Math.max((liveEdge - min) * 0.02, 200);
+    minimapMStart = min - padding;
+    minimapMDur = Math.max(liveEdge - min + padding * 2, 1000);
+  }
 
   const enabledIds = new Set(
     state.events
