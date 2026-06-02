@@ -19,12 +19,12 @@ class NavigationEntry {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'timestamp': timestamp.toIso8601String(),
-        'route': route,
-        if (from != null) 'from': from,
-        if (action != null) 'action': action,
-      };
+    'id': id,
+    'timestamp': timestamp.toIso8601String(),
+    'route': route,
+    if (from != null) 'from': from,
+    if (action != null) 'action': action,
+  };
 }
 
 /// Ring buffer for navigation events.
@@ -39,7 +39,7 @@ class NavigationLog {
   int _nextId = 1;
 
   NavigationLog({required DevToolsEventBus bus, this.capacity = 200})
-      : _bus = bus;
+    : _bus = bus;
 
   int get length => _entries.length;
 

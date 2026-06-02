@@ -87,9 +87,11 @@ class BridgeRouter {
     sw.stop();
 
     if (bytes == null) {
-      return Response(503,
-          body: jsonEncode({'error': 'No render tree available'}),
-          headers: {'content-type': 'application/json'});
+      return Response(
+        503,
+        body: jsonEncode({'error': 'No render tree available'}),
+        headers: {'content-type': 'application/json'},
+      );
     }
 
     final headers = <String, String>{
@@ -114,7 +116,8 @@ class BridgeRouter {
   Response _handleTree(Request request) {
     final sw = Stopwatch()..start();
 
-    final depth = int.tryParse(request.url.queryParameters['depth'] ?? '') ??
+    final depth =
+        int.tryParse(request.url.queryParameters['depth'] ?? '') ??
         widgetTreeService.defaultDepth;
     final compact = request.url.queryParameters['compact'] != 'false';
     final focusX = double.tryParse(request.url.queryParameters['x'] ?? '');
@@ -140,9 +143,11 @@ class BridgeRouter {
     sw.stop();
 
     if (tree == null) {
-      return Response(503,
-          body: jsonEncode({'error': 'No element tree available'}),
-          headers: {'content-type': 'application/json'});
+      return Response(
+        503,
+        body: jsonEncode({'error': 'No element tree available'}),
+        headers: {'content-type': 'application/json'},
+      );
     }
 
     final body = jsonEncode({
@@ -153,9 +158,7 @@ class BridgeRouter {
       'rootWidget': tree.toJson(compact: compact),
     });
 
-    final headers = <String, String>{
-      'content-type': 'application/json',
-    };
+    final headers = <String, String>{'content-type': 'application/json'};
     if (includeTimingHeaders) {
       headers['x-capture-time-ms'] = sw.elapsedMilliseconds.toString();
     }
@@ -197,9 +200,11 @@ class BridgeRouter {
     final x = double.tryParse(request.url.queryParameters['x'] ?? '');
     final y = double.tryParse(request.url.queryParameters['y'] ?? '');
     if (x == null || y == null) {
-      return Response(400,
-          body: jsonEncode({'error': 'x and y query params required'}),
-          headers: {'content-type': 'application/json'});
+      return Response(
+        400,
+        body: jsonEncode({'error': 'x and y query params required'}),
+        headers: {'content-type': 'application/json'},
+      );
     }
     final chain = widgetTreeService.pickAt(x, y);
     return Response.ok(
@@ -223,8 +228,10 @@ class BridgeRouter {
   Response _handleLogs(Request request) {
     final sink = logs;
     if (sink == null) {
-      return Response.ok(jsonEncode({'entries': const []}),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode({'entries': const []}),
+        headers: {'content-type': 'application/json'},
+      );
     }
     final limit =
         int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 100;
@@ -234,13 +241,15 @@ class BridgeRouter {
       'debug': 1,
       'info': 2,
       'warn': 3,
-      'error': 4
+      'error': 4,
     };
     final entries = sink
         .snapshot()
-        .where((e) =>
-            minLevel == null ||
-            (order[e.level.name] ?? 0) >= (order[minLevel] ?? 0))
+        .where(
+          (e) =>
+              minLevel == null ||
+              (order[e.level.name] ?? 0) >= (order[minLevel] ?? 0),
+        )
         .toList();
     final tail = entries.length > limit
         ? entries.sublist(entries.length - limit)
@@ -254,8 +263,10 @@ class BridgeRouter {
   Response _handleNetwork(Request request) {
     final log = network;
     if (log == null) {
-      return Response.ok(jsonEncode({'entries': const []}),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode({'entries': const []}),
+        headers: {'content-type': 'application/json'},
+      );
     }
     final limit =
         int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 100;
@@ -271,8 +282,10 @@ class BridgeRouter {
 
   Response _handleHealth() {
     return Response.ok(
-      jsonEncode(
-          {'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
+      jsonEncode({
+        'status': 'ok',
+        'timestamp': DateTime.now().toIso8601String(),
+      }),
       headers: {'content-type': 'application/json'},
     );
   }
@@ -287,8 +300,13 @@ class BridgeRouter {
     final endY = (json['endY'] as num).toDouble();
     final steps = (json['steps'] as int?) ?? 10;
 
-    final result =
-        gestureService.swipe(startX, startY, endX, endY, steps: steps);
+    final result = gestureService.swipe(
+      startX,
+      startY,
+      endX,
+      endY,
+      steps: steps,
+    );
 
     return Response.ok(
       jsonEncode(result.toJson()),
@@ -320,8 +338,10 @@ class BridgeRouter {
     final text = json['text'] as String;
     final replace = json['replace'] as bool? ?? false;
 
-    final result =
-        await gestureService.enterText(text, replaceExisting: replace);
+    final result = await gestureService.enterText(
+      text,
+      replaceExisting: replace,
+    );
 
     return Response.ok(
       jsonEncode(result.toJson()),

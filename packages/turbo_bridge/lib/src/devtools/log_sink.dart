@@ -6,12 +6,12 @@ import 'event_bus.dart';
 enum LogLevel { trace, debug, info, warn, error }
 
 String _levelName(LogLevel l) => switch (l) {
-      LogLevel.trace => 'trace',
-      LogLevel.debug => 'debug',
-      LogLevel.info => 'info',
-      LogLevel.warn => 'warn',
-      LogLevel.error => 'error',
-    };
+  LogLevel.trace => 'trace',
+  LogLevel.debug => 'debug',
+  LogLevel.info => 'info',
+  LogLevel.warn => 'warn',
+  LogLevel.error => 'error',
+};
 
 /// One log entry pushed in by the host app.
 class LogEntry {
@@ -55,18 +55,18 @@ class LogEntry {
   /// DevTools UI resolves `package:` URIs to ⌘-clickable file links using
   /// the configured project root (the app can't resolve them itself).
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'timestamp': timestamp.toIso8601String(),
-        'level': _levelName(level),
-        'message': message,
-        if (category != null) 'category': category,
-        if (data != null) 'data': data,
-        if (errorString != null) 'error': errorString,
-        if (stackTrace != null) 'stackTrace': stackTrace,
-        if (sourceFile != null) 'sourceFile': sourceFile,
-        if (sourceLine != null) 'sourceLine': sourceLine,
-        if (sourceColumn != null) 'sourceColumn': sourceColumn,
-      };
+    'id': id,
+    'timestamp': timestamp.toIso8601String(),
+    'level': _levelName(level),
+    'message': message,
+    if (category != null) 'category': category,
+    if (data != null) 'data': data,
+    if (errorString != null) 'error': errorString,
+    if (stackTrace != null) 'stackTrace': stackTrace,
+    if (sourceFile != null) 'sourceFile': sourceFile,
+    if (sourceLine != null) 'sourceLine': sourceLine,
+    if (sourceColumn != null) 'sourceColumn': sourceColumn,
+  };
 }
 
 /// Parsed call-site location.
@@ -83,10 +83,7 @@ class _SourceFrame {
 /// shortcut methods like `info`/`warn`) are skipped so we land on the
 /// caller's code. Returns null when no usable frame is found —
 /// typically in release/AOT builds where line info is stripped.
-_SourceFrame? _firstUserFrame(
-  StackTrace trace, {
-  int extraFramesToSkip = 0,
-}) {
+_SourceFrame? _firstUserFrame(StackTrace trace, {int extraFramesToSkip = 0}) {
   // Standard VM frames look like:
   //   #2      MyClass.doStuff (file:///abs/path.dart:42:5)
   //   #3      _RootZone.runUnary (dart:async/zone.dart:1407:47)
@@ -187,67 +184,69 @@ class LogSink {
     String? category,
     Map<String, dynamic>? data,
     int sourceFrameSkip = 0,
-  }) =>
-      add(
-          level: LogLevel.trace,
-          message: message,
-          category: category,
-          data: data,
-          sourceFrameSkip: sourceFrameSkip);
+  }) => add(
+    level: LogLevel.trace,
+    message: message,
+    category: category,
+    data: data,
+    sourceFrameSkip: sourceFrameSkip,
+  );
   LogEntry debug(
     String message, {
     String? category,
     Map<String, dynamic>? data,
     int sourceFrameSkip = 0,
-  }) =>
-      add(
-          level: LogLevel.debug,
-          message: message,
-          category: category,
-          data: data,
-          sourceFrameSkip: sourceFrameSkip);
+  }) => add(
+    level: LogLevel.debug,
+    message: message,
+    category: category,
+    data: data,
+    sourceFrameSkip: sourceFrameSkip,
+  );
   LogEntry info(
     String message, {
     String? category,
     Map<String, dynamic>? data,
     int sourceFrameSkip = 0,
-  }) =>
-      add(
-          level: LogLevel.info,
-          message: message,
-          category: category,
-          data: data,
-          sourceFrameSkip: sourceFrameSkip);
-  LogEntry warn(String message,
-          {String? category,
-          Map<String, dynamic>? data,
-          Object? error,
-          StackTrace? stackTrace,
-          int sourceFrameSkip = 0}) =>
-      add(
-        level: LogLevel.warn,
-        message: message,
-        category: category,
-        data: data,
-        error: error,
-        stackTrace: stackTrace,
-        sourceFrameSkip: sourceFrameSkip,
-      );
-  LogEntry error(String message,
-          {String? category,
-          Map<String, dynamic>? data,
-          Object? error,
-          StackTrace? stackTrace,
-          int sourceFrameSkip = 0}) =>
-      add(
-        level: LogLevel.error,
-        message: message,
-        category: category,
-        data: data,
-        error: error,
-        stackTrace: stackTrace,
-        sourceFrameSkip: sourceFrameSkip,
-      );
+  }) => add(
+    level: LogLevel.info,
+    message: message,
+    category: category,
+    data: data,
+    sourceFrameSkip: sourceFrameSkip,
+  );
+  LogEntry warn(
+    String message, {
+    String? category,
+    Map<String, dynamic>? data,
+    Object? error,
+    StackTrace? stackTrace,
+    int sourceFrameSkip = 0,
+  }) => add(
+    level: LogLevel.warn,
+    message: message,
+    category: category,
+    data: data,
+    error: error,
+    stackTrace: stackTrace,
+    sourceFrameSkip: sourceFrameSkip,
+  );
+  LogEntry error(
+    String message, {
+    String? category,
+    Map<String, dynamic>? data,
+    Object? error,
+    StackTrace? stackTrace,
+    int sourceFrameSkip = 0,
+  }) => add(
+    level: LogLevel.error,
+    message: message,
+    category: category,
+    data: data,
+    error: error,
+    stackTrace: stackTrace,
+    sourceFrameSkip: sourceFrameSkip,
+  );
 
   /// Drop everything. Mainly for tests.
   void clear() => _entries.clear();

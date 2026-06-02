@@ -44,28 +44,28 @@ class RequestLogEntry {
 
   /// Compact summary for log-list views.
   Map<String, dynamic> toSummaryJson() => {
-        'id': id,
-        'timestamp': timestamp.toIso8601String(),
-        'method': method,
-        'path': path,
-        if (query != null && query!.isNotEmpty) 'query': query,
-        'status': status,
-        'durationMs': durationMs,
-        if (remoteAddress != null) 'remoteAddress': remoteAddress,
-        if (responseBodySize != null) 'responseBodySize': responseBodySize,
-      };
+    'id': id,
+    'timestamp': timestamp.toIso8601String(),
+    'method': method,
+    'path': path,
+    if (query != null && query!.isNotEmpty) 'query': query,
+    'status': status,
+    'durationMs': durationMs,
+    if (remoteAddress != null) 'remoteAddress': remoteAddress,
+    if (responseBodySize != null) 'responseBodySize': responseBodySize,
+  };
 
   /// Full detail for the per-request panel.
   Map<String, dynamic> toDetailJson() => {
-        ...toSummaryJson(),
-        if (requestHeaders != null) 'requestHeaders': requestHeaders,
-        if (requestBody != null) 'requestBody': requestBody,
-        if (requestBodySize != null) 'requestBodySize': requestBodySize,
-        if (requestBodyTruncated) 'requestBodyTruncated': true,
-        if (responseHeaders != null) 'responseHeaders': responseHeaders,
-        if (responseBody != null) 'responseBody': responseBody,
-        if (responseBodyTruncated) 'responseBodyTruncated': true,
-      };
+    ...toSummaryJson(),
+    if (requestHeaders != null) 'requestHeaders': requestHeaders,
+    if (requestBody != null) 'requestBody': requestBody,
+    if (requestBodySize != null) 'requestBodySize': requestBodySize,
+    if (requestBodyTruncated) 'requestBodyTruncated': true,
+    if (responseHeaders != null) 'responseHeaders': responseHeaders,
+    if (responseBody != null) 'responseBody': responseBody,
+    if (responseBodyTruncated) 'responseBodyTruncated': true,
+  };
 
   /// Backwards-compatible alias used by older callers/tests.
   Map<String, dynamic> toJson() => toSummaryJson();

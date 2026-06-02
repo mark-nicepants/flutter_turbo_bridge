@@ -45,25 +45,25 @@ class NetworkCall {
   });
 
   Map<String, dynamic> toSummaryJson() => {
-        'id': id,
-        'timestamp': timestamp.toIso8601String(),
-        'method': method,
-        'url': url,
-        if (status != null) 'status': status,
-        if (durationMs != null) 'durationMs': durationMs,
-        if (error != null) 'error': error,
-        if (responseBodySize != null) 'responseBodySize': responseBodySize,
-        'inFlight': inFlight,
-      };
+    'id': id,
+    'timestamp': timestamp.toIso8601String(),
+    'method': method,
+    'url': url,
+    if (status != null) 'status': status,
+    if (durationMs != null) 'durationMs': durationMs,
+    if (error != null) 'error': error,
+    if (responseBodySize != null) 'responseBodySize': responseBodySize,
+    'inFlight': inFlight,
+  };
 
   Map<String, dynamic> toDetailJson() => {
-        ...toSummaryJson(),
-        if (requestHeaders != null) 'requestHeaders': requestHeaders,
-        if (requestBody != null) 'requestBody': requestBody,
-        if (requestBodySize != null) 'requestBodySize': requestBodySize,
-        if (responseHeaders != null) 'responseHeaders': responseHeaders,
-        if (responseBody != null) 'responseBody': responseBody,
-      };
+    ...toSummaryJson(),
+    if (requestHeaders != null) 'requestHeaders': requestHeaders,
+    if (requestBody != null) 'requestBody': requestBody,
+    if (requestBodySize != null) 'requestBodySize': requestBodySize,
+    if (responseHeaders != null) 'responseHeaders': responseHeaders,
+    if (responseBody != null) 'responseBody': responseBody,
+  };
 }
 
 /// Ring buffer for app-recorded HTTP/network activity.
@@ -207,9 +207,9 @@ class InFlightNetworkCall {
     required NetworkLog log,
     required NetworkCall entry,
     required DateTime startedAt,
-  })  : _log = log,
-        _entry = entry,
-        _startedAt = startedAt;
+  }) : _log = log,
+       _entry = entry,
+       _startedAt = startedAt;
 
   /// Whether this call has been finalized (completed, failed, or cancelled).
   bool get isDone => _done;

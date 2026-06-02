@@ -38,11 +38,7 @@ class TurboNavigationObserver extends NavigatorObserver {
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     // After a pop the user is on previousRoute, so log THAT as the new
     // "current" route.
-    _recordExplicit(
-      route: previousRoute,
-      from: route,
-      action: 'pop',
-    );
+    _recordExplicit(route: previousRoute, from: route, action: 'pop');
   }
 
   @override
@@ -53,11 +49,7 @@ class TurboNavigationObserver extends NavigatorObserver {
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    _recordExplicit(
-      route: previousRoute,
-      from: route,
-      action: 'remove',
-    );
+    _recordExplicit(route: previousRoute, from: route, action: 'remove');
   }
 
   void _record({

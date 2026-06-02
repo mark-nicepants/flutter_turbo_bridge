@@ -31,14 +31,15 @@ class TurboBridge {
     GestureService? gestureService,
     AppInfoService? appInfoService,
     FindService? findService,
-  })  : screenshotService = screenshotService ?? ScreenshotService(),
-        widgetTreeService = widgetTreeService ??
-            WidgetTreeService(defaultDepth: config.defaultTreeDepth),
-        gestureService = gestureService ?? GestureService(),
-        appInfoService = appInfoService ?? AppInfoService(),
-        findService = findService ?? FindService(),
-        eventBus = DevToolsEventBus(),
-        requestLog = RequestLog(capacity: config.devToolsRequestLogSize) {
+  }) : screenshotService = screenshotService ?? ScreenshotService(),
+       widgetTreeService =
+           widgetTreeService ??
+           WidgetTreeService(defaultDepth: config.defaultTreeDepth),
+       gestureService = gestureService ?? GestureService(),
+       appInfoService = appInfoService ?? AppInfoService(),
+       findService = findService ?? FindService(),
+       eventBus = DevToolsEventBus(),
+       requestLog = RequestLog(capacity: config.devToolsRequestLogSize) {
     logs = LogSink(bus: eventBus);
     network = NetworkLog(bus: eventBus);
     navigation = NavigationLog(bus: eventBus);
@@ -50,7 +51,8 @@ class TurboBridge {
   static TurboBridge get instance {
     if (_instance == null) {
       throw StateError(
-          'TurboBridge not initialized. Call TurboBridge.start() first.');
+        'TurboBridge not initialized. Call TurboBridge.start() first.',
+      );
     }
     return _instance!;
   }
@@ -185,7 +187,8 @@ class TurboBridge {
 
     _server = await shelf_io.serve(handler, config.host, config.port);
     debugPrint(
-        'TurboBridge listening on http://${config.host}:${_server!.port}');
+      'TurboBridge listening on http://${config.host}:${_server!.port}',
+    );
 
     if (config.enableDevTools) {
       final webAssets = await DevToolsWebAssetLoader.load();
@@ -219,8 +222,9 @@ class TurboBridge {
         final reqBytes = config.enableDevTools
             ? await _drain(request.read())
             : const <int>[];
-        final replay =
-            config.enableDevTools ? request.change(body: reqBytes) : request;
+        final replay = config.enableDevTools
+            ? request.change(body: reqBytes)
+            : request;
 
         final response = await inner(replay);
 
@@ -244,11 +248,13 @@ class TurboBridge {
           status: response.statusCode,
           durationMs: sw.elapsedMilliseconds,
           remoteAddress: remote,
-          requestHeaders:
-              config.enableDevTools ? _flattenHeaders(request.headers) : null,
+          requestHeaders: config.enableDevTools
+              ? _flattenHeaders(request.headers)
+              : null,
           requestBodyBytes: config.enableDevTools ? reqBytes : null,
-          responseHeaders:
-              config.enableDevTools ? _flattenHeaders(response.headers) : null,
+          responseHeaders: config.enableDevTools
+              ? _flattenHeaders(response.headers)
+              : null,
           responseBodyBytes: config.enableDevTools ? resBytes : null,
         );
         eventBus.emit(DevToolsEvent('request', entry.toSummaryJson()));

@@ -7,13 +7,13 @@ class DevToolsEvent {
   final DateTime timestamp;
 
   DevToolsEvent(this.type, this.payload, {DateTime? timestamp})
-      : timestamp = timestamp ?? DateTime.now().toUtc();
+    : timestamp = timestamp ?? DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
-        'type': type,
-        'timestamp': timestamp.toIso8601String(),
-        'payload': payload,
-      };
+    'type': type,
+    'timestamp': timestamp.toIso8601String(),
+    'payload': payload,
+  };
 }
 
 /// Broadcasts DevTools events to any number of SSE subscribers.

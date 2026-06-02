@@ -37,8 +37,10 @@ class DevToolsWebAssetLoader {
     }
     final result = <String, DevToolsAsset>{};
     if (body != null) {
-      result['index.html'] =
-          DevToolsAsset.text(body, 'text/html; charset=utf-8');
+      result['index.html'] = DevToolsAsset.text(
+        body,
+        'text/html; charset=utf-8',
+      );
     }
     _cache = result;
     return result;

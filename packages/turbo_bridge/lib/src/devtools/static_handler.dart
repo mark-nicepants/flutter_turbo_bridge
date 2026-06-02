@@ -41,8 +41,8 @@ class DevToolsAsset {
 
   const DevToolsAsset.text(this.body, this.contentType) : bytes = null;
   const DevToolsAsset.binary(List<int> data, this.contentType)
-      : bytes = data,
-        body = null;
+    : bytes = data,
+      body = null;
 }
 
 /// Convenience for tests that want to assert a textual response body.

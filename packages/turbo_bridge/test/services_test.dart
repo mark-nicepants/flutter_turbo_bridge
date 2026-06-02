@@ -19,9 +19,7 @@ void main() {
                 child: SizedBox(
                   width: 120,
                   height: 80,
-                  child: ColoredBox(
-                    color: Colors.red,
-                  ),
+                  child: ColoredBox(color: Colors.red),
                 ),
               ),
             ),
@@ -43,30 +41,28 @@ void main() {
     });
 
     testWidgets('captures widget tree with correct types', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text('Hello World'),
-          ),
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: Center(child: Text('Hello World'))),
         ),
-      ));
+      );
 
       final tree = service.capture();
       expect(tree, isNotNull);
       expect(tree!.type, isNotEmpty);
-      expect(
-        {'View', 'RawView', '_RawViewInternal', '_ViewScope'},
-        isNot(contains(tree.type)),
-      );
+      expect({
+        'View',
+        'RawView',
+        '_RawViewInternal',
+        '_ViewScope',
+      }, isNot(contains(tree.type)));
       expect(tree.children, isNotEmpty);
     });
 
     testWidgets('captures text content at unlimited depth', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: Text('Test Content'),
-        ),
-      ));
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Test Content'))),
+      );
 
       final tree = service.capture(depth: -1);
       expect(tree, isNotNull);
@@ -81,14 +77,16 @@ void main() {
     });
 
     testWidgets('captures widget keys at unlimited depth', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Container(
-            key: const ValueKey('my_container'),
-            child: const Text('Keyed'),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Container(
+              key: const ValueKey('my_container'),
+              child: const Text('Keyed'),
+            ),
           ),
         ),
-      ));
+      );
 
       final tree = service.capture(depth: -1);
       expect(tree, isNotNull);
@@ -102,18 +100,15 @@ void main() {
     });
 
     testWidgets('respects depth limit', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Column(
-              children: [
-                Text('Deep 1'),
-                Text('Deep 2'),
-              ],
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: Column(children: [Text('Deep 1'), Text('Deep 2')]),
             ),
           ),
         ),
-      ));
+      );
 
       final shallow = service.capture(depth: 2);
       final deep = service.capture(depth: 50);
@@ -131,18 +126,20 @@ void main() {
     });
 
     testWidgets('captures rect for rendered widgets', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              key: ValueKey('sized_box'),
-              width: 100,
-              height: 50,
-              child: Placeholder(),
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                key: ValueKey('sized_box'),
+                width: 100,
+                height: 50,
+                child: Placeholder(),
+              ),
             ),
           ),
         ),
-      ));
+      );
 
       final tree = service.capture(depth: -1);
       expect(tree, isNotNull);
@@ -163,28 +160,28 @@ void main() {
       expect(sizedBox.rect!['h'], 50.0);
     });
 
-    testWidgets('focus coordinates return a smaller local subtree',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Column(
-            children: [
-              const Text('Top area'),
-              Container(
-                key: const ValueKey('focus_target'),
-                padding: const EdgeInsets.all(8),
-                child: const Column(
-                  children: [
-                    Text('Target title'),
-                    Text('Target subtitle'),
-                  ],
+    testWidgets('focus coordinates return a smaller local subtree', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                const Text('Top area'),
+                Container(
+                  key: const ValueKey('focus_target'),
+                  padding: const EdgeInsets.all(8),
+                  child: const Column(
+                    children: [Text('Target title'), Text('Target subtitle')],
+                  ),
                 ),
-              ),
-              const Text('Bottom area'),
-            ],
+                const Text('Bottom area'),
+              ],
+            ),
           ),
         ),
-      ));
+      );
 
       final targetCenter = tester.getCenter(find.text('Target title'));
       final fullTree = service.capture(depth: -1);
@@ -207,18 +204,20 @@ void main() {
     });
 
     testWidgets('pickAt returns the widget chain at a point', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              key: ValueKey('target_box'),
-              width: 200,
-              height: 100,
-              child: Text('hello pick'),
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                key: ValueKey('target_box'),
+                width: 200,
+                height: 100,
+                child: Text('hello pick'),
+              ),
             ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       final service = WidgetTreeService();
@@ -234,11 +233,14 @@ void main() {
       expect(hasKey, isTrue);
     });
 
-    testWidgets('pickAt returns empty for points outside the tree',
-        (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(body: SizedBox(width: 10, height: 10)),
-      ));
+    testWidgets('pickAt returns empty for points outside the tree', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: SizedBox(width: 10, height: 10)),
+        ),
+      );
       await tester.pumpAndSettle();
 
       final service = WidgetTreeService();
@@ -254,20 +256,15 @@ void main() {
       service = FindService();
     });
 
-    testWidgets('prefers visible matches over offstage duplicates by default',
-        (tester) async {
+    testWidgets('prefers visible matches over offstage duplicates by default', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Stack(
             children: const [
-              Offstage(
-                offstage: true,
-                child: Text('Reports'),
-              ),
-              Align(
-                alignment: Alignment.topLeft,
-                child: Text('Reports'),
-              ),
+              Offstage(offstage: true, child: Text('Reports')),
+              Align(alignment: Alignment.topLeft, child: Text('Reports')),
             ],
           ),
         ),
@@ -281,15 +278,13 @@ void main() {
       expect(result.matches.first.centerY, greaterThanOrEqualTo(0));
     });
 
-    testWidgets('returns tappable ancestor bounds for text matches',
-        (tester) async {
+    testWidgets('returns tappable ancestor bounds for text matches', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: ListTile(
-              title: const Text('Tap target'),
-              onTap: () {},
-            ),
+            body: ListTile(title: const Text('Tap target'), onTap: () {}),
           ),
         ),
       );
@@ -303,45 +298,45 @@ void main() {
     });
 
     testWidgets(
-        'can bias toward the current route when duplicate visible text exists',
-        (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) {
-              return Scaffold(
-                body: Center(
-                  child: TextButton(
-                    onPressed: () {
-                      showDialog<void>(
-                        context: context,
-                        builder: (_) => const AlertDialog(
-                          content: Text('Reports'),
-                        ),
-                      );
-                    },
-                    child: const Text('Open'),
+      'can bias toward the current route when duplicate visible text exists',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) {
+                return Scaffold(
+                  body: Center(
+                    child: TextButton(
+                      onPressed: () {
+                        showDialog<void>(
+                          context: context,
+                          builder: (_) =>
+                              const AlertDialog(content: Text('Reports')),
+                        );
+                      },
+                      child: const Text('Open'),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-      final result = service.find(
-        text: 'Reports',
-        visibleOnly: true,
-        currentRouteOnly: true,
-      );
+        final result = service.find(
+          text: 'Reports',
+          visibleOnly: true,
+          currentRouteOnly: true,
+        );
 
-      expect(result.matches, isNotEmpty);
-      expect(result.matches.first.isCurrentRoute, isTrue);
-      expect(result.matches.first.routeName, isNotNull);
-    });
+        expect(result.matches, isNotEmpty);
+        expect(result.matches.first.isCurrentRoute, isTrue);
+        expect(result.matches.first.routeName, isNotNull);
+      },
+    );
   });
 
   group('GestureService', () {
@@ -352,9 +347,9 @@ void main() {
     });
 
     testWidgets('tap returns success result', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(body: SizedBox.expand()),
-      ));
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: SizedBox.expand())),
+      );
 
       // In test environment, handlePointerEvent works but gesture
       // recognition requires the test framework's pump cycle.
@@ -365,17 +360,20 @@ void main() {
       expect(result.executionTimeMs, lessThan(100));
     });
 
-    testWidgets('tap with tester confirms gesture system works',
-        (tester) async {
+    testWidgets('tap with tester confirms gesture system works', (
+      tester,
+    ) async {
       var tapped = false;
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ElevatedButton(
-            onPressed: () => tapped = true,
-            child: const Text('Tap me'),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ElevatedButton(
+              onPressed: () => tapped = true,
+              child: const Text('Tap me'),
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('Tap me'));
       await tester.pump();

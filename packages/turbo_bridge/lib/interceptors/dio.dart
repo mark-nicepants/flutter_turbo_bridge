@@ -36,10 +36,7 @@ class TurboBridgeDioInterceptor extends Interceptor {
   static const String _key = '__turbo_bridge_inflight';
 
   @override
-  void onRequest(
-    RequestOptions options,
-    RequestInterceptorHandler handler,
-  ) {
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final network = _networkOrNull();
     if (network != null) {
       try {

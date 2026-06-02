@@ -15,10 +15,10 @@ class GestureResult {
   });
 
   Map<String, dynamic> toJson() => {
-        'success': success,
-        'executionTimeMs': executionTimeMs,
-        if (error != null) 'error': error,
-      };
+    'success': success,
+    'executionTimeMs': executionTimeMs,
+    if (error != null) 'error': error,
+  };
 }
 
 /// Service for injecting pointer/gesture events into the Flutter app.
@@ -34,21 +34,27 @@ class GestureService {
       final binding = WidgetsBinding.instance;
       final pointer = _nextPointer;
 
-      binding.handlePointerEvent(PointerDownEvent(
-        pointer: pointer,
-        position: Offset(x, y),
-        kind: PointerDeviceKind.touch,
-      ));
+      binding.handlePointerEvent(
+        PointerDownEvent(
+          pointer: pointer,
+          position: Offset(x, y),
+          kind: PointerDeviceKind.touch,
+        ),
+      );
 
-      binding.handlePointerEvent(PointerUpEvent(
-        pointer: pointer,
-        position: Offset(x, y),
-        kind: PointerDeviceKind.touch,
-      ));
+      binding.handlePointerEvent(
+        PointerUpEvent(
+          pointer: pointer,
+          position: Offset(x, y),
+          kind: PointerDeviceKind.touch,
+        ),
+      );
 
       sw.stop();
       return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+        success: true,
+        executionTimeMs: sw.elapsedMilliseconds,
+      );
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -62,30 +68,39 @@ class GestureService {
   /// Inject a long press at the given coordinates.
   ///
   /// This dispatches the full sequence synchronously with a scheduled up event.
-  GestureResult longPress(double x, double y,
-      {Duration duration = const Duration(milliseconds: 500)}) {
+  GestureResult longPress(
+    double x,
+    double y, {
+    Duration duration = const Duration(milliseconds: 500),
+  }) {
     final sw = Stopwatch()..start();
     try {
       final binding = WidgetsBinding.instance;
       final pointer = _nextPointer;
 
-      binding.handlePointerEvent(PointerDownEvent(
-        pointer: pointer,
-        position: Offset(x, y),
-        kind: PointerDeviceKind.touch,
-      ));
-
-      Future.delayed(duration, () {
-        binding.handlePointerEvent(PointerUpEvent(
+      binding.handlePointerEvent(
+        PointerDownEvent(
           pointer: pointer,
           position: Offset(x, y),
           kind: PointerDeviceKind.touch,
-        ));
+        ),
+      );
+
+      Future.delayed(duration, () {
+        binding.handlePointerEvent(
+          PointerUpEvent(
+            pointer: pointer,
+            position: Offset(x, y),
+            kind: PointerDeviceKind.touch,
+          ),
+        );
       });
 
       sw.stop();
       return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+        success: true,
+        executionTimeMs: sw.elapsedMilliseconds,
+      );
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -111,33 +126,41 @@ class GestureService {
       final binding = WidgetsBinding.instance;
       final pointer = _nextPointer;
 
-      binding.handlePointerEvent(PointerDownEvent(
-        pointer: pointer,
-        position: Offset(startX, startY),
-        kind: PointerDeviceKind.touch,
-      ));
+      binding.handlePointerEvent(
+        PointerDownEvent(
+          pointer: pointer,
+          position: Offset(startX, startY),
+          kind: PointerDeviceKind.touch,
+        ),
+      );
 
       for (var i = 1; i <= steps; i++) {
         final t = i / steps;
         final x = startX + (endX - startX) * t;
         final y = startY + (endY - startY) * t;
 
-        binding.handlePointerEvent(PointerMoveEvent(
-          pointer: pointer,
-          position: Offset(x, y),
-          kind: PointerDeviceKind.touch,
-        ));
+        binding.handlePointerEvent(
+          PointerMoveEvent(
+            pointer: pointer,
+            position: Offset(x, y),
+            kind: PointerDeviceKind.touch,
+          ),
+        );
       }
 
-      binding.handlePointerEvent(PointerUpEvent(
-        pointer: pointer,
-        position: Offset(endX, endY),
-        kind: PointerDeviceKind.touch,
-      ));
+      binding.handlePointerEvent(
+        PointerUpEvent(
+          pointer: pointer,
+          position: Offset(endX, endY),
+          kind: PointerDeviceKind.touch,
+        ),
+      );
 
       sw.stop();
       return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+        success: true,
+        executionTimeMs: sw.elapsedMilliseconds,
+      );
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -152,39 +175,52 @@ class GestureService {
   ///
   /// [dx] and [dy] are the scroll delta in logical pixels.
   /// Positive [dy] scrolls down; negative scrolls up.
-  GestureResult scroll(double x, double y,
-      {double dx = 0, double dy = 0, int steps = 5}) {
+  GestureResult scroll(
+    double x,
+    double y, {
+    double dx = 0,
+    double dy = 0,
+    int steps = 5,
+  }) {
     final sw = Stopwatch()..start();
     try {
       final binding = WidgetsBinding.instance;
       final pointer = _nextPointer;
 
-      binding.handlePointerEvent(PointerDownEvent(
-        pointer: pointer,
-        position: Offset(x, y),
-        kind: PointerDeviceKind.touch,
-      ));
+      binding.handlePointerEvent(
+        PointerDownEvent(
+          pointer: pointer,
+          position: Offset(x, y),
+          kind: PointerDeviceKind.touch,
+        ),
+      );
 
       final stepDx = dx / steps;
       final stepDy = dy / steps;
 
       for (var i = 1; i <= steps; i++) {
-        binding.handlePointerEvent(PointerMoveEvent(
-          pointer: pointer,
-          position: Offset(x + stepDx * i, y + stepDy * i),
-          kind: PointerDeviceKind.touch,
-        ));
+        binding.handlePointerEvent(
+          PointerMoveEvent(
+            pointer: pointer,
+            position: Offset(x + stepDx * i, y + stepDy * i),
+            kind: PointerDeviceKind.touch,
+          ),
+        );
       }
 
-      binding.handlePointerEvent(PointerUpEvent(
-        pointer: pointer,
-        position: Offset(x + dx, y + dy),
-        kind: PointerDeviceKind.touch,
-      ));
+      binding.handlePointerEvent(
+        PointerUpEvent(
+          pointer: pointer,
+          position: Offset(x + dx, y + dy),
+          kind: PointerDeviceKind.touch,
+        ),
+      );
 
       sw.stop();
       return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+        success: true,
+        executionTimeMs: sw.elapsedMilliseconds,
+      );
     } catch (e) {
       sw.stop();
       return GestureResult(
@@ -199,8 +235,10 @@ class GestureService {
   ///
   /// If [replaceExisting] is true, clears the field before typing.
   /// Returns a failed result if no text field is currently focused.
-  Future<GestureResult> enterText(String text,
-      {bool replaceExisting = false}) async {
+  Future<GestureResult> enterText(
+    String text, {
+    bool replaceExisting = false,
+  }) async {
     final sw = Stopwatch()..start();
     try {
       // Use the binary messenger to simulate the platform sending text input
@@ -233,7 +271,9 @@ class GestureService {
 
       sw.stop();
       return GestureResult(
-          success: true, executionTimeMs: sw.elapsedMilliseconds);
+        success: true,
+        executionTimeMs: sw.elapsedMilliseconds,
+      );
     } catch (e) {
       sw.stop();
       return GestureResult(

@@ -51,18 +51,24 @@ class DevToolsRouter {
     }
     if (path == 'api/devtools/logs') {
       final entries = logs.snapshot().map((e) => e.toJson()).toList();
-      return Response.ok(jsonEncode({'entries': entries}),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode({'entries': entries}),
+        headers: {'content-type': 'application/json'},
+      );
     }
     if (path == 'api/devtools/navigation') {
       final entries = navigation.snapshot().map((e) => e.toJson()).toList();
-      return Response.ok(jsonEncode({'entries': entries}),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode({'entries': entries}),
+        headers: {'content-type': 'application/json'},
+      );
     }
     if (path == 'api/devtools/network') {
       final entries = network.snapshot().map((e) => e.toSummaryJson()).toList();
-      return Response.ok(jsonEncode({'entries': entries}),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode({'entries': entries}),
+        headers: {'content-type': 'application/json'},
+      );
     }
     if (path.startsWith('api/devtools/network/')) {
       final idStr = path.substring('api/devtools/network/'.length);
@@ -70,11 +76,15 @@ class DevToolsRouter {
       if (id == null) return Response.notFound('Bad network id');
       final call = network.byId(id);
       if (call == null) {
-        return Response.notFound(jsonEncode({'error': 'Not found'}),
-            headers: {'content-type': 'application/json'});
+        return Response.notFound(
+          jsonEncode({'error': 'Not found'}),
+          headers: {'content-type': 'application/json'},
+        );
       }
-      return Response.ok(jsonEncode(call.toDetailJson()),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode(call.toDetailJson()),
+        headers: {'content-type': 'application/json'},
+      );
     }
     if (path.startsWith('api/devtools/requests/')) {
       final idStr = path.substring('api/devtools/requests/'.length);
@@ -84,11 +94,15 @@ class DevToolsRouter {
       }
       final entry = requestLog.byId(id);
       if (entry == null) {
-        return Response.notFound(jsonEncode({'error': 'Not found'}),
-            headers: {'content-type': 'application/json'});
+        return Response.notFound(
+          jsonEncode({'error': 'Not found'}),
+          headers: {'content-type': 'application/json'},
+        );
       }
-      return Response.ok(jsonEncode(entry.toDetailJson()),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode(entry.toDetailJson()),
+        headers: {'content-type': 'application/json'},
+      );
     }
     if (path.startsWith('api/')) {
       // Mutating endpoints require the same-origin DevTools header so
@@ -96,12 +110,14 @@ class DevToolsRouter {
       if (request.method != 'GET' &&
           request.headers['x-turbo-devtools'] != '1') {
         return Response.forbidden(
-            jsonEncode({
-              'error': 'Missing x-turbo-devtools header. '
-                  'Mutating DevTools API calls must originate from the '
-                  'DevTools UI.',
-            }),
-            headers: {'content-type': 'application/json'});
+          jsonEncode({
+            'error':
+                'Missing x-turbo-devtools header. '
+                'Mutating DevTools API calls must originate from the '
+                'DevTools UI.',
+          }),
+          headers: {'content-type': 'application/json'},
+        );
       }
       // Re-issue the request to the main BridgeRouter with the `api/`
       // prefix stripped, so it sees the same paths the JSON-API port does.
@@ -112,8 +128,10 @@ class DevToolsRouter {
   }
 
   Response _handleRequestLog() {
-    final entries =
-        requestLog.snapshot().map((e) => e.toSummaryJson()).toList();
+    final entries = requestLog
+        .snapshot()
+        .map((e) => e.toSummaryJson())
+        .toList();
     return Response.ok(
       jsonEncode({'entries': entries}),
       headers: {'content-type': 'application/json'},
@@ -128,8 +146,12 @@ class DevToolsRouter {
 
     final subscription = eventBus.stream.listen((event) {
       final data = jsonEncode(event.toJson());
-      controller.add(utf8.encode('event: ${event.type}\n'
-          'data: $data\n\n'));
+      controller.add(
+        utf8.encode(
+          'event: ${event.type}\n'
+          'data: $data\n\n',
+        ),
+      );
     });
 
     // Heartbeat so proxies don't close the connection on idle.

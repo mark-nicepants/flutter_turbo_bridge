@@ -39,19 +39,21 @@ void main() {
     test('records entries with monotonic ids', () {
       final log = RequestLog(capacity: 10);
       final a = log.record(
-          method: 'GET',
-          path: '/health',
-          query: null,
-          status: 200,
-          durationMs: 1,
-          remoteAddress: '127.0.0.1');
+        method: 'GET',
+        path: '/health',
+        query: null,
+        status: 200,
+        durationMs: 1,
+        remoteAddress: '127.0.0.1',
+      );
       final b = log.record(
-          method: 'POST',
-          path: '/tap',
-          query: null,
-          status: 200,
-          durationMs: 3,
-          remoteAddress: '127.0.0.1');
+        method: 'POST',
+        path: '/tap',
+        query: null,
+        status: 200,
+        durationMs: 3,
+        remoteAddress: '127.0.0.1',
+      );
       expect(a.id, 1);
       expect(b.id, 2);
       expect(log.snapshot().map((e) => e.id), [1, 2]);
@@ -61,12 +63,13 @@ void main() {
       final log = RequestLog(capacity: 3);
       for (var i = 0; i < 5; i++) {
         log.record(
-            method: 'GET',
-            path: '/$i',
-            query: null,
-            status: 200,
-            durationMs: 0,
-            remoteAddress: null);
+          method: 'GET',
+          path: '/$i',
+          query: null,
+          status: 200,
+          durationMs: 0,
+          remoteAddress: null,
+        );
       }
       final entries = log.snapshot();
       expect(entries.length, 3);
@@ -76,12 +79,13 @@ void main() {
     test('serializes entries to JSON with timestamp', () {
       final log = RequestLog();
       final e = log.record(
-          method: 'GET',
-          path: '/info',
-          query: 'depth=2',
-          status: 200,
-          durationMs: 5,
-          remoteAddress: '10.0.0.5');
+        method: 'GET',
+        path: '/info',
+        query: 'depth=2',
+        status: 200,
+        durationMs: 5,
+        remoteAddress: '10.0.0.5',
+      );
       final json = e.toJson();
       expect(json['method'], 'GET');
       expect(json['path'], '/info');
@@ -520,37 +524,39 @@ void main() {
       );
     }
 
-    test('records a successful exchange with request + response bodies',
-        () async {
-      final bridge = TurboBridge.createForTest();
-      final client = buildClient(
-        onSend: (request) async => StreamedResponse(
-          Stream.value(utf8.encode('{"ok":true}')),
-          200,
-          request: request,
-          headers: {'content-type': 'application/json'},
-        ),
-      );
+    test(
+      'records a successful exchange with request + response bodies',
+      () async {
+        final bridge = TurboBridge.createForTest();
+        final client = buildClient(
+          onSend: (request) async => StreamedResponse(
+            Stream.value(utf8.encode('{"ok":true}')),
+            200,
+            request: request,
+            headers: {'content-type': 'application/json'},
+          ),
+        );
 
-      final resp = await client.post(
-        Uri.parse('https://api.example.com/items'),
-        body: '{"name":"a"}',
-      );
+        final resp = await client.post(
+          Uri.parse('https://api.example.com/items'),
+          body: '{"name":"a"}',
+        );
 
-      // Caller sees an untouched response.
-      expect(resp.statusCode, 200);
-      expect(resp.body, '{"ok":true}');
+        // Caller sees an untouched response.
+        expect(resp.statusCode, 200);
+        expect(resp.body, '{"ok":true}');
 
-      final calls = bridge.network.snapshot();
-      expect(calls.length, 1);
-      final call = calls.single;
-      expect(call.method, 'POST');
-      expect(call.url, 'https://api.example.com/items');
-      expect(call.status, 200);
-      expect(call.requestBody, '{"name":"a"}');
-      expect(call.responseBody, '{"ok":true}');
-      expect(call.responseBodySize, '{"ok":true}'.length);
-    });
+        final calls = bridge.network.snapshot();
+        expect(calls.length, 1);
+        final call = calls.single;
+        expect(call.method, 'POST');
+        expect(call.url, 'https://api.example.com/items');
+        expect(call.status, 200);
+        expect(call.requestBody, '{"name":"a"}');
+        expect(call.responseBody, '{"ok":true}');
+        expect(call.responseBodySize, '{"ok":true}'.length);
+      },
+    );
 
     test('records 4xx/5xx exchanges (no error hook needed)', () async {
       final bridge = TurboBridge.createForTest();
@@ -591,8 +597,7 @@ void main() {
       expect(call.responseBodySize, 11);
     });
 
-    test('retryPolicy records send failures without adding retries',
-        () async {
+    test('retryPolicy records send failures without adding retries', () async {
       final bridge = TurboBridge.createForTest();
       final interceptor = TurboBridgeHttpInterceptor();
       var attempts = 0;
@@ -618,39 +623,43 @@ void main() {
       expect(call.url, 'https://api.example.com/down');
     });
 
-    test('retryPolicy preserves a wrapped policy and logs each failed attempt',
-        () async {
-      final bridge = TurboBridge.createForTest();
-      final interceptor = TurboBridgeHttpInterceptor();
-      var attempts = 0;
-      final client = InterceptedClient.build(
-        interceptors: [interceptor],
-        retryPolicy: interceptor.retryPolicy(wrapping: _RetryOncePolicy()),
-        client: _StubClient((request) async {
-          attempts++;
-          if (attempts == 1) {
-            throw const SocketException('connection refused');
-          }
-          return StreamedResponse(
-            Stream.value(utf8.encode('{"ok":true}')),
-            200,
-            request: request,
-          );
-        }),
-      );
+    test(
+      'retryPolicy preserves a wrapped policy and logs each failed attempt',
+      () async {
+        final bridge = TurboBridge.createForTest();
+        final interceptor = TurboBridgeHttpInterceptor();
+        var attempts = 0;
+        final client = InterceptedClient.build(
+          interceptors: [interceptor],
+          retryPolicy: interceptor.retryPolicy(wrapping: _RetryOncePolicy()),
+          client: _StubClient((request) async {
+            attempts++;
+            if (attempts == 1) {
+              throw const SocketException('connection refused');
+            }
+            return StreamedResponse(
+              Stream.value(utf8.encode('{"ok":true}')),
+              200,
+              request: request,
+            );
+          }),
+        );
 
-      final resp = await client.get(Uri.parse('https://api.example.com/items'));
-      expect(resp.statusCode, 200);
-      expect(attempts, 2); // inner policy retried once
+        final resp = await client.get(
+          Uri.parse('https://api.example.com/items'),
+        );
+        expect(resp.statusCode, 200);
+        expect(attempts, 2); // inner policy retried once
 
-      // First attempt logged as a failure, second as a success.
-      final calls = bridge.network.snapshot();
-      expect(calls.length, 2);
-      expect(calls.first.error, contains('connection refused'));
-      expect(calls.first.status, isNull);
-      expect(calls.last.status, 200);
-      expect(calls.last.responseBody, '{"ok":true}');
-    });
+        // First attempt logged as a failure, second as a success.
+        final calls = bridge.network.snapshot();
+        expect(calls.length, 2);
+        expect(calls.first.error, contains('connection refused'));
+        expect(calls.first.status, isNull);
+        expect(calls.last.status, 200);
+        expect(calls.last.responseBody, '{"ok":true}');
+      },
+    );
 
     test('honors the urlFor override', () async {
       final bridge = TurboBridge.createForTest();
@@ -661,8 +670,8 @@ void main() {
           ),
         ],
         client: _StubClient(
-          (request) async => StreamedResponse(const Stream.empty(), 200,
-              request: request),
+          (request) async =>
+              StreamedResponse(const Stream.empty(), 200, request: request),
         ),
       );
 
@@ -709,7 +718,9 @@ void main() {
   group('DevToolsStaticHandler', () {
     final fixtureAssets = <String, DevToolsAsset>{
       'index.html': const DevToolsAsset.text(
-          '<html><body>shell</body></html>', 'text/html; charset=utf-8'),
+        '<html><body>shell</body></html>',
+        'text/html; charset=utf-8',
+      ),
       'styles.css': const DevToolsAsset.text('body { color: red }', 'text/css'),
     };
 
@@ -722,24 +733,27 @@ void main() {
 
     test('unknown paths fall back to the SPA shell', () {
       final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res = handler
-          .handle(Request('GET', Uri.parse('http://x:8889/some/deep/link')));
+      final res = handler.handle(
+        Request('GET', Uri.parse('http://x:8889/some/deep/link')),
+      );
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], startsWith('text/html'));
     });
 
     test('serves a known asset with its content type', () {
       final handler = DevToolsStaticHandler(assets: fixtureAssets);
-      final res =
-          handler.handle(Request('GET', Uri.parse('http://x:8889/styles.css')));
+      final res = handler.handle(
+        Request('GET', Uri.parse('http://x:8889/styles.css')),
+      );
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], 'text/css');
     });
 
     test('404 when no assets are loaded at all', () {
       final handler = DevToolsStaticHandler(assets: const {});
-      final res =
-          handler.handle(Request('GET', Uri.parse('http://x:8889/anything')));
+      final res = handler.handle(
+        Request('GET', Uri.parse('http://x:8889/anything')),
+      );
       expect(res.statusCode, 404);
     });
   });
@@ -767,10 +781,14 @@ void main() {
         logs: LogSink(bus: bus),
         network: NetworkLog(bus: bus),
         navigation: NavigationLog(bus: bus),
-        staticHandler: DevToolsStaticHandler(assets: {
-          'index.html': const DevToolsAsset.text(
-              '<html><body>shell</body></html>', 'text/html; charset=utf-8'),
-        }),
+        staticHandler: DevToolsStaticHandler(
+          assets: {
+            'index.html': const DevToolsAsset.text(
+              '<html><body>shell</body></html>',
+              'text/html; charset=utf-8',
+            ),
+          },
+        ),
       );
     });
 
@@ -780,34 +798,41 @@ void main() {
 
     test('/api/devtools/requests returns the current log snapshot', () async {
       log.record(
-          method: 'GET',
-          path: '/health',
-          query: null,
-          status: 200,
-          durationMs: 1,
-          remoteAddress: '127.0.0.1');
+        method: 'GET',
+        path: '/health',
+        query: null,
+        status: 200,
+        durationMs: 1,
+        remoteAddress: '127.0.0.1',
+      );
       final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8889/api/devtools/requests')));
+        Request('GET', Uri.parse('http://x:8889/api/devtools/requests')),
+      );
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       expect((body['entries'] as List).length, 1);
       expect((body['entries'] as List).first['path'], '/health');
     });
 
-    test('mutating /api/* without x-turbo-devtools header is rejected',
-        () async {
-      final res = await router.handler(Request(
-        'POST',
-        Uri.parse('http://x:8889/api/tap'),
-        body: jsonEncode({'x': 10, 'y': 20}),
-        headers: const {'content-type': 'application/json'},
-      ));
-      expect(res.statusCode, 403);
-    });
+    test(
+      'mutating /api/* without x-turbo-devtools header is rejected',
+      () async {
+        final res = await router.handler(
+          Request(
+            'POST',
+            Uri.parse('http://x:8889/api/tap'),
+            body: jsonEncode({'x': 10, 'y': 20}),
+            headers: const {'content-type': 'application/json'},
+          ),
+        );
+        expect(res.statusCode, 403);
+      },
+    );
 
     test('GET /api/health is proxied to the bridge router', () async {
-      final res = await router
-          .handler(Request('GET', Uri.parse('http://x:8889/api/health')));
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8889/api/health')),
+      );
       expect(res.statusCode, 200);
       final json = jsonDecode(await res.readAsString());
       expect(json['status'], 'ok');
@@ -829,7 +854,8 @@ void main() {
       sink.error('boom', category: 'net', error: Exception('nope'));
 
       final res = await router.handler(
-          Request('GET', Uri.parse('http://x:8889/api/devtools/logs')));
+        Request('GET', Uri.parse('http://x:8889/api/devtools/logs')),
+      );
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       final entries = body['entries'] as List;
@@ -858,46 +884,61 @@ void main() {
       );
 
       final list = await router.handler(
-          Request('GET', Uri.parse('http://x:8889/api/devtools/network')));
+        Request('GET', Uri.parse('http://x:8889/api/devtools/network')),
+      );
       final entries =
           (jsonDecode(await list.readAsString()) as Map)['entries'] as List;
       expect(entries.length, 1);
       expect(entries.first['url'], 'https://api.example.com/users/1');
 
-      final detail = await router.handler(Request(
-          'GET', Uri.parse('http://x:8889/api/devtools/network/${call.id}')));
+      final detail = await router.handler(
+        Request(
+          'GET',
+          Uri.parse('http://x:8889/api/devtools/network/${call.id}'),
+        ),
+      );
       final d = jsonDecode(await detail.readAsString()) as Map<String, dynamic>;
       expect(d['responseBody'], '{"id":1}');
     });
 
-    test('/api/devtools/requests/:id returns full detail with bodies',
-        () async {
-      final entry = log.record(
-        method: 'POST',
-        path: '/tap',
-        query: null,
-        status: 200,
-        durationMs: 1,
-        remoteAddress: '127.0.0.1',
-        requestHeaders: {'content-type': 'application/json'},
-        requestBodyBytes: '{"x":1,"y":2}'.codeUnits,
-        responseHeaders: {'content-type': 'application/json'},
-        responseBodyBytes: '{"success":true}'.codeUnits,
-      );
+    test(
+      '/api/devtools/requests/:id returns full detail with bodies',
+      () async {
+        final entry = log.record(
+          method: 'POST',
+          path: '/tap',
+          query: null,
+          status: 200,
+          durationMs: 1,
+          remoteAddress: '127.0.0.1',
+          requestHeaders: {'content-type': 'application/json'},
+          requestBodyBytes: '{"x":1,"y":2}'.codeUnits,
+          responseHeaders: {'content-type': 'application/json'},
+          responseBodyBytes: '{"success":true}'.codeUnits,
+        );
 
-      final res = await router.handler(Request(
-          'GET', Uri.parse('http://x:8889/api/devtools/requests/${entry.id}')));
-      expect(res.statusCode, 200);
-      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-      expect(body['requestBody'], '{"x":1,"y":2}');
-      expect(body['responseBody'], '{"success":true}');
-      expect(
-          (body['responseHeaders'] as Map)['content-type'], 'application/json');
-    });
+        final res = await router.handler(
+          Request(
+            'GET',
+            Uri.parse('http://x:8889/api/devtools/requests/${entry.id}'),
+          ),
+        );
+        expect(res.statusCode, 200);
+        final body =
+            jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+        expect(body['requestBody'], '{"x":1,"y":2}');
+        expect(body['responseBody'], '{"success":true}');
+        expect(
+          (body['responseHeaders'] as Map)['content-type'],
+          'application/json',
+        );
+      },
+    );
 
     test('/events opens an SSE stream and pushes emitted events', () async {
-      final res = await router
-          .handler(Request('GET', Uri.parse('http://x:8889/events')));
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8889/events')),
+      );
       expect(res.statusCode, 200);
       expect(res.headers['content-type'], 'text/event-stream');
 
@@ -940,8 +981,9 @@ void main() {
     test('/logs returns entries the sink has accumulated', () async {
       router.logs!.info('first');
       router.logs!.warn('second', category: 'auth');
-      final res =
-          await router.handler(Request('GET', Uri.parse('http://x:8888/logs')));
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8888/logs')),
+      );
       expect(res.statusCode, 200);
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       final entries = body['entries'] as List;
@@ -953,8 +995,9 @@ void main() {
       router.logs!.debug('d');
       router.logs!.info('i');
       router.logs!.error('e');
-      final res = await router
-          .handler(Request('GET', Uri.parse('http://x:8888/logs?level=warn')));
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8888/logs?level=warn')),
+      );
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
       final entries = body['entries'] as List;
       expect(entries.length, 1);
@@ -965,10 +1008,13 @@ void main() {
       for (var i = 0; i < 10; i++) {
         router.logs!.info('m$i');
       }
-      final res = await router
-          .handler(Request('GET', Uri.parse('http://x:8888/logs?limit=3')));
-      final entries = (jsonDecode(await res.readAsString())
-          as Map<String, dynamic>)['entries'] as List;
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8888/logs?limit=3')),
+      );
+      final entries =
+          (jsonDecode(await res.readAsString())
+                  as Map<String, dynamic>)['entries']
+              as List;
       expect(entries.length, 3);
       expect((entries.last as Map)['message'], 'm9');
     });
@@ -981,11 +1027,14 @@ void main() {
         appInfoService: AppInfoService(),
         findService: FindService(),
       );
-      final res =
-          await bare.handler(Request('GET', Uri.parse('http://x:8888/logs')));
+      final res = await bare.handler(
+        Request('GET', Uri.parse('http://x:8888/logs')),
+      );
       expect(res.statusCode, 200);
-      final entries = (jsonDecode(await res.readAsString())
-          as Map<String, dynamic>)['entries'] as List;
+      final entries =
+          (jsonDecode(await res.readAsString())
+                  as Map<String, dynamic>)['entries']
+              as List;
       expect(entries, isEmpty);
     });
 
@@ -996,10 +1045,13 @@ void main() {
         status: 200,
         durationMs: 5,
       );
-      final res = await router
-          .handler(Request('GET', Uri.parse('http://x:8888/network')));
-      final entries = (jsonDecode(await res.readAsString())
-          as Map<String, dynamic>)['entries'] as List;
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8888/network')),
+      );
+      final entries =
+          (jsonDecode(await res.readAsString())
+                  as Map<String, dynamic>)['entries']
+              as List;
       expect(entries.length, 1);
       expect((entries.first as Map)['url'], 'https://api.example.com/x');
     });
@@ -1014,38 +1066,40 @@ void main() {
         devToolsPortProvider: () => 4567,
       );
 
-      final res = await withDevTools
-          .handler(Request('GET', Uri.parse('http://x:8888/info')));
-      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-
-      expect(body['devTools'], {
-        'enabled': true,
-        'port': 4567,
-      });
-    });
-
-    test('/info advertises the configured projectRoot for the DevTools UI',
-        () async {
-      final withRoot = BridgeRouter(
-        screenshotService: ScreenshotService(),
-        widgetTreeService: WidgetTreeService(),
-        gestureService: GestureService(),
-        appInfoService: _FakeAppInfoService(),
-        findService: FindService(),
-        devToolsPortProvider: () => 4567,
-        projectRoot: '/Users/me/dev/my_app',
+      final res = await withDevTools.handler(
+        Request('GET', Uri.parse('http://x:8888/info')),
       );
-
-      final res = await withRoot
-          .handler(Request('GET', Uri.parse('http://x:8888/info')));
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
 
-      expect(body['devTools'], {
-        'enabled': true,
-        'port': 4567,
-        'projectRoot': '/Users/me/dev/my_app',
-      });
+      expect(body['devTools'], {'enabled': true, 'port': 4567});
     });
+
+    test(
+      '/info advertises the configured projectRoot for the DevTools UI',
+      () async {
+        final withRoot = BridgeRouter(
+          screenshotService: ScreenshotService(),
+          widgetTreeService: WidgetTreeService(),
+          gestureService: GestureService(),
+          appInfoService: _FakeAppInfoService(),
+          findService: FindService(),
+          devToolsPortProvider: () => 4567,
+          projectRoot: '/Users/me/dev/my_app',
+        );
+
+        final res = await withRoot.handler(
+          Request('GET', Uri.parse('http://x:8888/info')),
+        );
+        final body =
+            jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+
+        expect(body['devTools'], {
+          'enabled': true,
+          'port': 4567,
+          'projectRoot': '/Users/me/dev/my_app',
+        });
+      },
+    );
 
     test('/info omits projectRoot when it is blank', () async {
       final withBlankRoot = BridgeRouter(
@@ -1058,16 +1112,18 @@ void main() {
         projectRoot: '   ',
       );
 
-      final res = await withBlankRoot
-          .handler(Request('GET', Uri.parse('http://x:8888/info')));
+      final res = await withBlankRoot.handler(
+        Request('GET', Uri.parse('http://x:8888/info')),
+      );
       final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
 
       expect((body['devTools'] as Map).containsKey('projectRoot'), isFalse);
     });
 
     test('/pick returns 400 when x/y are missing', () async {
-      final res =
-          await router.handler(Request('GET', Uri.parse('http://x:8888/pick')));
+      final res = await router.handler(
+        Request('GET', Uri.parse('http://x:8888/pick')),
+      );
       expect(res.statusCode, 400);
     });
   });
@@ -1088,20 +1144,22 @@ void main() {
 
         // Hit the JSON-API port — should be recorded in the log.
         final client = HttpClient();
-        final infoReq = await client
-            .getUrl(Uri.parse('http://127.0.0.1:${bridge.port}/info'));
+        final infoReq = await client.getUrl(
+          Uri.parse('http://127.0.0.1:${bridge.port}/info'),
+        );
         final infoResp = await infoReq.close();
         expect(infoResp.statusCode, 200);
-        final infoBody = jsonDecode(
-          await infoResp.transform(utf8.decoder).join(),
-        ) as Map<String, dynamic>;
+        final infoBody =
+            jsonDecode(await infoResp.transform(utf8.decoder).join())
+                as Map<String, dynamic>;
         expect(infoBody['devTools'], {
           'enabled': true,
           'port': bridge.devToolsPort,
         });
 
-        final req = await client
-            .getUrl(Uri.parse('http://127.0.0.1:${bridge.port}/health'));
+        final req = await client.getUrl(
+          Uri.parse('http://127.0.0.1:${bridge.port}/health'),
+        );
         final resp = await req.close();
         expect(resp.statusCode, 200);
         await resp.drain<void>();
@@ -1111,20 +1169,26 @@ void main() {
         expect(bridge.requestLog.length, greaterThanOrEqualTo(1));
 
         // The DevTools log endpoint reflects the same data.
-        final devReq = await client.getUrl(Uri.parse(
-            'http://127.0.0.1:${bridge.devToolsPort}/api/devtools/requests'));
+        final devReq = await client.getUrl(
+          Uri.parse(
+            'http://127.0.0.1:${bridge.devToolsPort}/api/devtools/requests',
+          ),
+        );
         final devResp = await devReq.close();
         final body =
             jsonDecode(await devResp.transform(utf8.decoder).join()) as Map;
         expect((body['entries'] as List), isNotEmpty);
 
         // The DevTools UI shell is served from /.
-        final indexReq = await client
-            .getUrl(Uri.parse('http://127.0.0.1:${bridge.devToolsPort}/'));
+        final indexReq = await client.getUrl(
+          Uri.parse('http://127.0.0.1:${bridge.devToolsPort}/'),
+        );
         final indexResp = await indexReq.close();
         expect(indexResp.statusCode, 200);
         expect(
-            indexResp.headers.value('content-type'), startsWith('text/html'));
+          indexResp.headers.value('content-type'),
+          startsWith('text/html'),
+        );
         final indexBody = await indexResp.transform(utf8.decoder).join();
         expect(indexBody, contains('Turbo Bridge'));
         // The bundle now inlines its JS — there should be a <script>

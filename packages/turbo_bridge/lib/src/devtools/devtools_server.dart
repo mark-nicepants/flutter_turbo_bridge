@@ -77,8 +77,10 @@ class DevToolsServer {
         );
       }
     } catch (e, stack) {
-      debugPrint('[turbo_bridge] DevTools failed to start on '
-          '${config.devToolsHost}:${config.devToolsPort}: $e\n$stack');
+      debugPrint(
+        '[turbo_bridge] DevTools failed to start on '
+        '${config.devToolsHost}:${config.devToolsPort}: $e\n$stack',
+      );
       _server = null;
     }
   }

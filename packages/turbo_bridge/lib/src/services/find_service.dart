@@ -10,11 +10,11 @@ class FindResult {
   const FindResult({required this.matches, required this.searchTimeMs});
 
   Map<String, dynamic> toJson() => {
-        'found': matches.isNotEmpty,
-        'count': matches.length,
-        'searchTimeMs': searchTimeMs,
-        'results': matches.map((m) => m.toJson()).toList(),
-      };
+    'found': matches.isNotEmpty,
+    'count': matches.length,
+    'searchTimeMs': searchTimeMs,
+    'results': matches.map((m) => m.toJson()).toList(),
+  };
 }
 
 /// A widget match with its coordinates and metadata.
@@ -55,19 +55,19 @@ class FoundWidget {
   double? get centerY => y != null && height != null ? y! + height! / 2 : null;
 
   Map<String, dynamic> toJson() => {
-        'type': type,
-        if (key != null) 'key': key,
-        if (text != null) 'text': text,
-        if (x != null) 'bounds': {'x': x, 'y': y, 'w': width, 'h': height},
-        if (centerX != null) 'center': {'x': centerX, 'y': centerY},
-        if (matchedBy != null) 'matchedBy': matchedBy,
-        if (score != null) 'score': score,
-        if (isVisible != null) 'isVisible': isVisible,
-        if (isCurrentRoute != null) 'isCurrentRoute': isCurrentRoute,
-        if (routeName != null) 'routeName': routeName,
-        if (tapTargetType != null) 'tapTargetType': tapTargetType,
-        if (tapTargetKey != null) 'tapTargetKey': tapTargetKey,
-      };
+    'type': type,
+    if (key != null) 'key': key,
+    if (text != null) 'text': text,
+    if (x != null) 'bounds': {'x': x, 'y': y, 'w': width, 'h': height},
+    if (centerX != null) 'center': {'x': centerX, 'y': centerY},
+    if (matchedBy != null) 'matchedBy': matchedBy,
+    if (score != null) 'score': score,
+    if (isVisible != null) 'isVisible': isVisible,
+    if (isCurrentRoute != null) 'isCurrentRoute': isCurrentRoute,
+    if (routeName != null) 'routeName': routeName,
+    if (tapTargetType != null) 'tapTargetType': tapTargetType,
+    if (tapTargetKey != null) 'tapTargetKey': tapTargetKey,
+  };
 }
 
 class _FindCandidate {
@@ -100,21 +100,21 @@ class _FindCandidate {
   });
 
   FoundWidget toFoundWidget() => FoundWidget(
-        type: type,
-        key: key,
-        text: text,
-        x: bounds?.left,
-        y: bounds?.top,
-        width: bounds?.width,
-        height: bounds?.height,
-        matchedBy: matchedBy,
-        score: score,
-        isVisible: isVisible,
-        isCurrentRoute: isCurrentRoute,
-        routeName: routeName,
-        tapTargetType: tapTargetType,
-        tapTargetKey: tapTargetKey,
-      );
+    type: type,
+    key: key,
+    text: text,
+    x: bounds?.left,
+    y: bounds?.top,
+    width: bounds?.width,
+    height: bounds?.height,
+    matchedBy: matchedBy,
+    score: score,
+    isVisible: isVisible,
+    isCurrentRoute: isCurrentRoute,
+    routeName: routeName,
+    tapTargetType: tapTargetType,
+    tapTargetKey: tapTargetKey,
+  );
 }
 
 /// Service for finding widgets in the element tree without serializing the
@@ -204,7 +204,8 @@ class FindService {
         final tapBounds = _boundsFor(tapTarget ?? element);
         final bounds = tapBounds ?? matchBounds;
         final isInteractive = tapTarget != null;
-        final isVisible = !nextIsOffstage &&
+        final isVisible =
+            !nextIsOffstage &&
             !routeOffstage &&
             bounds != null &&
             bounds.width > 0 &&
@@ -238,8 +239,9 @@ class FindService {
         );
       }
 
-      element
-          .visitChildren((child) => visit(child, isOffstage: nextIsOffstage));
+      element.visitChildren(
+        (child) => visit(child, isOffstage: nextIsOffstage),
+      );
     }
 
     visit(rootElement, isOffstage: false);
@@ -253,7 +255,8 @@ class FindService {
 
     selected.sort((a, b) => b.score.compareTo(a.score));
     matches.addAll(
-        selected.take(limit).map((candidate) => candidate.toFoundWidget()));
+      selected.take(limit).map((candidate) => candidate.toFoundWidget()),
+    );
 
     sw.stop();
     return FindResult(matches: matches, searchTimeMs: sw.elapsedMilliseconds);

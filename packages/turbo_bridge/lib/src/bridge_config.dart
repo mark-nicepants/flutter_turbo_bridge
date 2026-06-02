@@ -56,7 +56,8 @@ class BridgeConfig {
     this.devToolsPort = 8889,
     this.devToolsHost = '127.0.0.1',
     this.devToolsRequestLogSize = 200,
-    this.projectRoot =
-        const String.fromEnvironment('TURBO_BRIDGE_PROJECT_ROOT'),
+    this.projectRoot = const String.fromEnvironment(
+      'TURBO_BRIDGE_PROJECT_ROOT',
+    ),
   });
 }

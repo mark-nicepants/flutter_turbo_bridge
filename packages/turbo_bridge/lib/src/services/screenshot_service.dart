@@ -63,7 +63,8 @@ class ScreenshotService {
     if (renderBoundary.debugNeedsPaint && !isWidgetTestBinding) {
       binding.scheduleFrame();
       await binding.endOfFrame;
-      renderBoundary = _findCaptureBoundary(
+      renderBoundary =
+          _findCaptureBoundary(
             binding,
             surfaceSize: surfaceSize,
             requirePainted: true,
@@ -154,8 +155,9 @@ class ScreenshotService {
 
   Element _stripFrameworkShell(Element element) {
     var current = element;
-    while (
-        _frameworkShellTypes.contains(current.widget.runtimeType.toString())) {
+    while (_frameworkShellTypes.contains(
+      current.widget.runtimeType.toString(),
+    )) {
       final child = _singleChildOf(current);
       if (child == null) {
         break;
