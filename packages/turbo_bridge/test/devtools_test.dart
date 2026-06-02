@@ -9,7 +9,6 @@ import 'package:shelf/shelf.dart';
 import 'package:turbo_bridge/interceptors/http.dart';
 import 'package:turbo_bridge/src/devtools/devtools_router.dart';
 import 'package:turbo_bridge/src/devtools/event_bus.dart';
-import 'package:turbo_bridge/src/devtools/log_sink.dart';
 import 'package:turbo_bridge/src/devtools/request_log.dart';
 import 'package:turbo_bridge/src/devtools/static_handler.dart';
 import 'package:turbo_bridge/src/server/router.dart';
