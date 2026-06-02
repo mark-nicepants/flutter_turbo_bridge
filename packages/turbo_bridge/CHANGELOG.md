@@ -7,9 +7,14 @@
   - `TurboBridgeDioInterceptor` (`package:turbo_bridge/interceptors/dio.dart`) —
     drop into `Dio.interceptors`; hooks `onRequest` / `onResponse` /
     `onError` and stashes the in-flight handle on `RequestOptions.extra`.
-  - `TurboBridgeHttpInterceptor` (`package:turbo_bridge/interceptors/http_interceptor.dart`) —
-    implements `http_interceptor` v3's `HttpInterceptor`; correlates
-    request → response via an `Expando` keyed on the request instance.
+  - `TurboBridgeHttpClient` (`package:turbo_bridge/interceptors/http.dart`) —
+    a `BaseClient` decorator (wraps an inner `Client`, defaults to
+    `Client()`). We chose a client wrapper over an `http_interceptor`
+    implementation so that failures (DNS, timeout, connection refused)
+    and response bodies are both captured — `http_interceptor` v3 has
+    no error hook and `interceptResponse` receives a `StreamedResponse`
+    that can't expose the body. Compose with auth / retry clients by
+    passing them as `inner`.
   Both adapters share a body-size cap (16 KB default) and an optional
   URL rewriter for stripping secrets / query strings, and no-op safely
   when `TurboBridge` isn't initialized. The host app adds `dio` or

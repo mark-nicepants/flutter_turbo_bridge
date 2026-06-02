@@ -33,7 +33,6 @@ dev_dependencies:
   # can build and test against them, but consumers must add the
   # adapter they want to their own pubspec.yaml.
   dio: ^5.0.0
-  http_interceptor: ^3.0.0
   http: ^1.0.0
 
 flutter:
