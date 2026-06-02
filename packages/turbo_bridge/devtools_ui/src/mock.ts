@@ -104,7 +104,51 @@ function fakeNetwork(): any {
     },
     responseBody: JSON.stringify({ ok: status < 400, status }, null, 0),
     responseBodySize: 24,
+    inFlight: false,
   };
+}
+
+/// Emit an in-flight network call (no status/duration yet), then resolve it
+/// after a visible delay with a second emission on the same id — mirroring
+/// the real `start()` → `complete()` two-event protocol so the growing
+/// yellow bar can be developed against the mock.
+function startFakeInFlight(): void {
+  const id = mock.nextId++;
+  const method = pick(['GET', 'GET', 'POST', 'PUT']);
+  const base = {
+    id,
+    timestamp: new Date().toISOString(),
+    method,
+    url: pick(URLS),
+    requestHeaders: {
+      authorization: 'Bearer eyJraWQiOiJtb2NrIn0.***',
+      'content-type': 'application/json',
+    },
+    requestBody:
+      method === 'GET' ? null : JSON.stringify({ payload: 'demo' }),
+  };
+  const pending = { ...base, inFlight: true };
+  mock.history.network.push(pending);
+  emit('network', pending);
+
+  // Resolve after 0.4–2.4s so the bar visibly grows before completing.
+  const duration = Math.round(400 + Math.random() * 2000);
+  window.setTimeout(() => {
+    const r = Math.random();
+    const status = r < 0.85 ? 200 : r < 0.95 ? 404 : 500;
+    const done = {
+      ...base,
+      status,
+      durationMs: duration,
+      responseHeaders: { 'content-type': 'application/json' },
+      responseBody: JSON.stringify({ ok: status < 400, status }),
+      responseBodySize: 24,
+      inFlight: false,
+    };
+    const idx = mock.history.network.findIndex((x) => x.id === id);
+    if (idx >= 0) mock.history.network[idx] = done;
+    emit('network', done);
+  }, duration);
 }
 
 const MOCK_SOURCES: { file: string; line: number; col: number }[] = [
@@ -287,9 +331,15 @@ class MockEventSource {
         mock.history.requests.push(req);
         emit('request', req);
       } else if (k < 0.95) {
-        const n = fakeNetwork();
-        mock.history.network.push(n);
-        emit('network', n);
+        // Half of network calls run through the in-flight lifecycle so the
+        // growing yellow bar is exercised; the rest land fully formed.
+        if (Math.random() < 0.5) {
+          startFakeInFlight();
+        } else {
+          const n = fakeNetwork();
+          mock.history.network.push(n);
+          emit('network', n);
+        }
       } else {
         const nav = fakeNavigation(prevRoute);
         mock.history.navigation.push(nav);

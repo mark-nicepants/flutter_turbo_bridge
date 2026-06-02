@@ -7,24 +7,41 @@
   - `TurboBridgeDioInterceptor` (`package:turbo_bridge/interceptors/dio.dart`) —
     drop into `Dio.interceptors`; hooks `onRequest` / `onResponse` /
     `onError` and stashes the in-flight handle on `RequestOptions.extra`.
-  - `TurboBridgeHttpClient` (`package:turbo_bridge/interceptors/http.dart`) —
-    a `BaseClient` decorator (wraps an inner `Client`, defaults to
-    `Client()`). We chose a client wrapper over an `http_interceptor`
-    implementation so that failures (DNS, timeout, connection refused)
-    and response bodies are both captured — `http_interceptor` v3 has
-    no error hook and `interceptResponse` receives a `StreamedResponse`
-    that can't expose the body. Compose with auth / retry clients by
-    passing them as `inner`.
+  - `TurboBridgeHttpInterceptor` (`package:turbo_bridge/interceptors/http.dart`) —
+    an `HttpInterceptor` (from `http_interceptor` >= 3.0) for
+    `InterceptedClient` / `InterceptedHttp`. `interceptRequest` opens the
+    in-flight handle (correlated to its response via an `Expando` keyed on
+    the request), and `interceptResponse` buffers the `StreamedResponse`
+    to record the body before re-emitting it unchanged. Add it last in the
+    `interceptors` list so it sees the final, fully-decorated request.
+    Successful exchanges (including 4xx/5xx) capture request and response
+    bodies. `http_interceptor` v3 has no error hook on the interceptor, so
+    to surface failures whose underlying `Client.send` throws (DNS,
+    timeout, connection refused), pass `interceptor.retryPolicy()` as the
+    client's `retryPolicy` — the `RetryPolicy` exception hook fires on a
+    thrown send and records the failure without adding retries. Wrap an
+    existing policy with `interceptor.retryPolicy(wrapping: myPolicy)` to
+    keep its retry behavior.
   Both adapters share a body-size cap (16 KB default) and an optional
   URL rewriter for stripping secrets / query strings, and no-op safely
   when `TurboBridge` isn't initialized. The host app adds `dio` or
   `http_interceptor` to its own pubspec — they are not transitive
-  dependencies of `turbo_bridge`.
+  dependencies of `turbo_bridge`. Adding the http adapter bumps the
+  package's Dart floor to 3.8.0 (Flutter 3.32+), which `http_interceptor`
+  3.0 requires.
 - **`NetworkLog.start()` / `InFlightNetworkCall` primitive** as the
   canonical entry path for HTTP interceptors. Returns a handle whose
   `complete()` / `fail()` / `cancel()` finalize the call with accurate
   wall-clock `durationMs`. `NetworkLog.record()` is unchanged for
   one-shot use sites.
+- **In-flight requests on the DevTools timeline**: `start()` now surfaces
+  the call immediately as an in-flight entry (`inFlight: true` in the
+  `network` summary JSON) and `complete()` / `fail()` mutate that same
+  entry in place and re-emit, so a slow request is visible while it runs
+  instead of only after it finishes. The UI renders in-flight calls as a
+  growing, pulsing **yellow** bar that grows toward "now" and settles to
+  its final status colour on completion; `cancel()` retracts the entry.
+  `NetworkCall` gained a mutable `inFlight` flag.
 - **Smooth follow ticker in DevTools UI**: when "follow" is on, a
   ~30fps `requestAnimationFrame` loop pins `windowStart` to
   `Date.now() - windowDuration`, so the timeline glides forward

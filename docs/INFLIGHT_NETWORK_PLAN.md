@@ -1,8 +1,13 @@
 # Plan: in-flight network requests on the DevTools timeline
 
-Today a network call only appears on the timeline once the response (or
-error) arrives — we record the start timestamp + duration only at
-`record()` time. This means a 30s API call is invisible for 30s.
+> **Status: implemented.** `NetworkLog.start()` now emits an in-flight
+> entry immediately and `complete()`/`fail()` mutate + re-emit it; the
+> DevTools UI renders in-flight calls as a growing, pulsing yellow bar.
+> The notes below are kept as the design record.
+
+Originally a network call only appeared on the timeline once the response
+(or error) arrived — the start timestamp + duration were recorded only at
+`record()` time. This meant a 30s API call was invisible for 30s.
 
 Goal: surface the request the moment it starts, render it as a growing
 bar that ends when the response lands.
