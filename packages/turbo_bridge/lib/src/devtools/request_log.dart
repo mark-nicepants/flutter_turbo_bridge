@@ -2,7 +2,7 @@ import 'dart:collection';
 
 /// Cap on captured request/response bodies (bytes). Above this we keep
 /// the prefix and mark the entry as truncated so the UI can warn.
-const int _bodyExcerptMax = 16 * 1024;
+const int _bodyExcerptMax = 512 * 1024;
 
 /// One JSON-API request seen by the bridge.
 class RequestLogEntry {

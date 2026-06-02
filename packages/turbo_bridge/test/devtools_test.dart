@@ -115,9 +115,9 @@ void main() {
       expect(entry.responseBodyTruncated, isFalse);
     });
 
-    test('marks body as truncated past 16 KB', () {
+    test('marks body as truncated past the 512 KB cap', () {
       final log = RequestLog();
-      final big = List<int>.filled(20 * 1024, 0x41); // 'A' * 20k
+      final big = List<int>.filled(600 * 1024, 0x41); // 'A' * 600k
       final entry = log.record(
         method: 'GET',
         path: '/big',
@@ -127,9 +127,25 @@ void main() {
         remoteAddress: null,
         responseBodyBytes: big,
       );
-      expect(entry.responseBodySize, 20 * 1024);
+      expect(entry.responseBodySize, 600 * 1024);
       expect(entry.responseBodyTruncated, isTrue);
-      expect(entry.responseBody!.length, 16 * 1024);
+      expect(entry.responseBody!.length, 512 * 1024);
+    });
+
+    test('keeps bodies up to the cap intact', () {
+      final log = RequestLog();
+      final body = List<int>.filled(64 * 1024, 0x41); // 64k, under the cap
+      final entry = log.record(
+        method: 'GET',
+        path: '/medium',
+        query: null,
+        status: 200,
+        durationMs: 1,
+        remoteAddress: null,
+        responseBodyBytes: body,
+      );
+      expect(entry.responseBodyTruncated, isFalse);
+      expect(entry.responseBody!.length, 64 * 1024);
     });
 
     test('detects binary bodies and replaces with marker', () {
@@ -680,6 +696,35 @@ void main() {
       // secret query string).
       expect(bridge.network.snapshot().single.url, '/items');
     });
+
+    test(
+      'survives a retry-on-response without "Can\'t finalize" (issue repro)',
+      () async {
+        final bridge = TurboBridge.createForTest();
+        // Inner client that finalizes the request like a real HTTP client —
+        // returns 401 on the first attempt, 200 on the retry.
+        final inner = _FinalizingClient((attempt) => attempt == 1 ? 401 : 200);
+        final client = InterceptedClient.build(
+          interceptors: [TurboBridgeHttpInterceptor()],
+          client: inner,
+          retryPolicy: _RetryOn401Policy(),
+        );
+
+        // Before the fix this threw "Bad state: Can't finalize a finalized
+        // Request" on the second attempt (http_interceptor re-sends the same
+        // request object).
+        final resp = await client.get(
+          Uri.parse('https://api.example.com/clients/paged?page=0&pageSize=20'),
+        );
+
+        expect(inner.attempts, 2);
+        expect(resp.statusCode, 200);
+        // Both attempts were recorded on the timeline.
+        final calls = bridge.network.snapshot();
+        expect(calls.length, 2);
+        expect(calls.every((c) => c.method == 'GET'), isTrue);
+      },
+    );
   });
 
   group('DevToolsEventBus', () {
@@ -1082,6 +1127,51 @@ class _StubClient extends BaseClient {
 
   @override
   Future<StreamedResponse> send(BaseRequest request) => _onSend(request);
+}
+
+/// Inner [Client] that *finalizes* the request like a real HTTP client (so
+/// re-sending the same request throws), returning a status chosen per attempt.
+class _FinalizingClient extends BaseClient {
+  _FinalizingClient(this._statusFor);
+
+  final int Function(int attempt) _statusFor;
+  int attempts = 0;
+
+  @override
+  Future<StreamedResponse> send(BaseRequest request) async {
+    attempts++;
+    // Mimic a real client: finalizing a request twice throws.
+    await request.finalize().toBytes();
+    return StreamedResponse(
+      Stream.value(utf8.encode('{"ok":true}')),
+      _statusFor(attempts),
+      request: request,
+      headers: const {'content-type': 'application/json'},
+    );
+  }
+}
+
+/// [RetryPolicy] that retries once when the response is a 401 — mirrors a
+/// token-refresh policy.
+class _RetryOn401Policy implements RetryPolicy {
+  @override
+  int get maxRetryAttempts => 1;
+
+  @override
+  bool shouldAttemptRetryOnException(Exception reason, BaseRequest request) =>
+      false;
+
+  @override
+  bool shouldAttemptRetryOnResponse(BaseResponse response) =>
+      response.statusCode == 401;
+
+  @override
+  Duration delayRetryAttemptOnException({required int retryAttempt}) =>
+      Duration.zero;
+
+  @override
+  Duration delayRetryAttemptOnResponse({required int retryAttempt}) =>
+      Duration.zero;
 }
 
 /// Minimal [RetryPolicy] that retries once on any exception — used to check

@@ -46,13 +46,13 @@ const LOG_MESSAGES: Record<string, string[]> = {
   analytics: ['screen_view', 'click_purchase', 'scroll_depth_50'],
 };
 const URLS = [
-  'https://api.example.com/feed',
+  'https://api.example.com/feed?limit=20&cursor=eyJpZCI6MTB9&sort=-createdAt',
   'https://api.example.com/users/me',
-  'https://api.example.com/cart',
+  'https://api.example.com/cart?include=items,totals',
   'https://api.example.com/cart/add',
   'https://api.example.com/checkout/start',
   'https://cdn.example.com/static/banner.jpg',
-  'https://api.example.com/products/42',
+  'https://api.example.com/products/42?expand=variants&currency=EUR',
 ];
 
 function pick<T>(arr: T[]): T {
@@ -82,6 +82,8 @@ function fakeNetwork(): any {
   const r = Math.random();
   const status = r < 0.8 ? 200 : r < 0.9 ? 201 : r < 0.95 ? 401 : 500;
   const duration = Math.round(30 + Math.random() * 280);
+  // Occasionally send a form-encoded POST so the Params → Form table shows.
+  const formEncoded = method !== 'GET' && Math.random() < 0.4;
   return {
     id: mock.nextId++,
     timestamp: new Date().toISOString(),
@@ -91,12 +93,16 @@ function fakeNetwork(): any {
     durationMs: duration,
     requestHeaders: {
       authorization: 'Bearer eyJraWQiOiJtb2NrIn0.***',
-      'content-type': 'application/json',
+      'content-type': formEncoded
+        ? 'application/x-www-form-urlencoded'
+        : 'application/json',
       'user-agent': 'demo/1.0 (mock device)',
     },
     requestBody: method === 'GET'
       ? null
-      : JSON.stringify({ payload: 'demo', ts: Date.now() }),
+      : formEncoded
+        ? 'email=demo%40example.com&remember=true&note=hello+world'
+        : JSON.stringify({ payload: 'demo', ts: Date.now() }),
     responseHeaders: {
       'content-type': 'application/json',
       'cache-control': 'no-store',

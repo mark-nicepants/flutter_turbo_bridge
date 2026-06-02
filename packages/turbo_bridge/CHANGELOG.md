@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Fixed `TurboBridgeHttpInterceptor` triggering `Bad state: Can't finalize a
+  finalized Request` when a `RetryPolicy` retries the request (e.g. a
+  token-refresh retry). The interceptor now hands the inner client a fresh
+  copy of the request on each attempt, so retries no longer re-finalize the
+  same request.
+- Raised the captured request/response body cap from 16 KB to 512 KB — for the
+  DevTools request log and the `Dio` / `http` interceptor defaults — so larger
+  JSON payloads are shown in full instead of being truncated.
+
 ## 0.3.0
 
 - **Breaking — the DevTools web UI is no longer served by the app.** It now

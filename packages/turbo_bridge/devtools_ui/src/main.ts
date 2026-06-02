@@ -66,6 +66,8 @@ interface State {
   retentionMs: number;
   modalEvent: TimelineEvent | null;
   modalTab: 'request' | 'response' | 'curl';
+  // Secondary nav within the Request/Response tabs of the network detail.
+  modalSubTab: 'headers' | 'params' | 'body';
   // Persistent settings — loaded from localStorage on boot, written
   // back on every change.
   settings: PersistedSettings;
@@ -178,6 +180,7 @@ const state: State = {
   retentionMs: 5 * 60_000,
   modalEvent: null,
   modalTab: 'request',
+  modalSubTab: 'body',
   settings: loadSettings(),
   settingsOpen: false,
   connection: 'connecting',
@@ -278,6 +281,22 @@ function ensureFollowTicker() {
 
 function windowEnd(): number {
   return state.windowStart + state.windowDuration;
+}
+
+/// Wall-clock right edge of the timeline. "Following" pins the window's right
+/// edge here; events all live at or before it. Using wall-clock "now" (not the
+/// last event's timestamp) is what lets the window keep gliding — and lets the
+/// user drag back into history — during a long idle with no new events.
+function liveEdge(): number {
+  return Math.max(Date.now(), fullRange().max);
+}
+
+/// Whether the window's right edge is essentially at the live edge, i.e. we
+/// should be (or stay) following. The epsilon is generous so following doesn't
+/// flicker off between follow-ticker frames.
+const FOLLOW_EPS_MS = 250;
+function atLiveEdge(): boolean {
+  return windowEnd() >= liveEdge() - FOLLOW_EPS_MS;
 }
 
 function passesFilters(ev: TimelineEvent): boolean {
@@ -470,8 +489,8 @@ function mount(root: HTMLElement) {
     const { min, max } = fullRange();
     state.windowStart = min;
     state.windowDuration = Math.max(MIN_WINDOW_MS, max - min);
-    state.follow =
-      state.windowStart + state.windowDuration >= max - 50;
+    state.follow = atLiveEdge();
+    if (state.follow) maybeFollow();
     scheduleUpdate();
   });
   winChip.appendChild(showAllBtn);
@@ -1038,15 +1057,20 @@ function updateMinimap() {
   // glides predictably as time passes. For ∞ retention we fall back
   // to the actual event range so a long-running session doesn't paint
   // an unbounded ruler.
-  const { min, max } = fullRange();
-  const liveEdge = Math.max(windowEnd(), max);
+  // Anchor the ruler to the wall-clock live edge (now), not the dragged
+  // window — otherwise dragging the viewport would drag the whole ruler with
+  // it and the viewport could never leave the right edge. Widen to include the
+  // current window in case the user zoomed/panned beyond the live edge.
+  const { min } = fullRange();
+  const edge = Math.max(liveEdge(), windowEnd());
   if (state.retentionMs > 0) {
     minimapMDur = state.retentionMs;
-    minimapMStart = liveEdge - minimapMDur;
+    minimapMStart = edge - minimapMDur;
   } else {
-    const padding = Math.max((liveEdge - min) * 0.02, 200);
-    minimapMStart = min - padding;
-    minimapMDur = Math.max(liveEdge - min + padding * 2, 1000);
+    const lo = Math.min(min, state.windowStart);
+    const padding = Math.max((edge - lo) * 0.02, 200);
+    minimapMStart = lo - padding;
+    minimapMDur = Math.max(edge - lo + padding * 2, 1000);
   }
 
   const enabledIds = new Set(
@@ -1189,13 +1213,13 @@ function updateModal() {
     modalTabRendered = null;
     return;
   }
-  // Only rebuild when the event or tab actually changed.
-  const sig = `${state.modalEvent.id}|${state.modalTab}`;
+  // Only rebuild when the event or (sub)tab actually changed.
+  const sig = `${state.modalEvent.id}|${state.modalTab}|${state.modalSubTab}`;
   if (sig !== `${modalEventId}|${modalTabRendered}`) {
     layer.classList.remove('hidden');
     layer.replaceChildren(renderModal(state.modalEvent));
     modalEventId = state.modalEvent.id;
-    modalTabRendered = state.modalTab;
+    modalTabRendered = `${state.modalTab}|${state.modalSubTab}`;
   }
 }
 
@@ -1430,8 +1454,13 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
   return wrap;
 }
 
+type ModalSubTab = 'headers' | 'params' | 'body';
+
 function renderNetworkBody(ev: TimelineEvent): HTMLElement {
+  const raw = ev.raw;
   const wrap = el('div', 'flex flex-col min-h-0 flex-1');
+
+  // Primary nav: Request / Response / Curl.
   const tabs = el(
     'nav',
     'flex items-center gap-1 px-3 border-b border-zinc-800 bg-zinc-900/40',
@@ -1441,19 +1470,82 @@ function renderNetworkBody(ev: TimelineEvent): HTMLElement {
   );
   wrap.appendChild(tabs);
 
-  const body = el('div', 'flex-1 min-h-0 overflow-auto');
-  switch (state.modalTab) {
-    case 'request':
-      body.appendChild(renderRequestSection(ev.raw));
-      break;
-    case 'response':
-      body.appendChild(renderResponseSection(ev.raw));
-      break;
-    case 'curl':
-      body.appendChild(renderCurlSection(ev.raw));
-      break;
+  // Curl has no secondary nav — just the command.
+  if (state.modalTab === 'curl') {
+    const body = el('div', 'flex-1 min-h-0 overflow-auto');
+    body.appendChild(renderCurlSection(raw));
+    wrap.appendChild(body);
+    return wrap;
   }
-  wrap.appendChild(body);
+
+  const isReq = state.modalTab === 'request';
+  const headers =
+    (isReq ? raw['requestHeaders'] : raw['responseHeaders']) as
+      | Record<string, string>
+      | undefined;
+  const headerCount = headers ? Object.keys(headers).length : 0;
+  const params = isReq ? httpParams(raw) : null;
+  const paramCount = params ? params.query.length + params.form.length : 0;
+
+  // Secondary nav: Headers / [Params] / Body, with counts.
+  const subTabs: Array<{ key: ModalSubTab; label: string; count?: number }> =
+    isReq
+      ? [
+          { key: 'headers', label: 'Headers', count: headerCount },
+          { key: 'params', label: 'Params', count: paramCount },
+          { key: 'body', label: 'Body' },
+        ]
+      : [
+          { key: 'headers', label: 'Headers', count: headerCount },
+          { key: 'body', label: 'Body' },
+        ];
+  const allowed = subTabs.map((s) => s.key);
+  const sub: ModalSubTab = allowed.includes(state.modalSubTab)
+    ? state.modalSubTab
+    : 'body';
+
+  const subNav = el(
+    'nav',
+    'flex items-center gap-1 px-3 py-1.5 border-b border-zinc-800 bg-zinc-950',
+  );
+  for (const s of subTabs) {
+    subNav.appendChild(modalSubTabBtn(s.key, s.label, s.count, sub === s.key));
+  }
+  wrap.appendChild(subNav);
+
+  const content = el('div', 'flex-1 min-h-0 overflow-auto p-4');
+  if (sub === 'headers') {
+    content.appendChild(renderHeadersTable(headers));
+  } else if (sub === 'params') {
+    content.appendChild(renderParamsSection(params!));
+  } else {
+    if (!isReq && raw['error']) {
+      content.appendChild(
+        el('div', 'mb-3 text-xs text-rose-400', escapeHtml(String(raw['error']))),
+      );
+    }
+    const bodyStr = (isReq ? raw['requestBody'] : raw['responseBody']) as
+      | string
+      | undefined;
+    const sizeLabel = isReq
+      ? raw['requestBody']
+        ? `${raw['requestBodySize'] ?? '?'} B`
+        : null
+      : raw['responseBody']
+        ? `${raw['responseBodySize'] ?? '?'} B${raw['responseBodyTruncated'] ? ' · truncated' : ''}`
+        : null;
+    if (sizeLabel) {
+      content.appendChild(
+        el(
+          'div',
+          'mb-2 text-[10px] uppercase tracking-wider text-zinc-500',
+          sizeLabel,
+        ),
+      );
+    }
+    content.appendChild(renderBodyBlock(bodyStr, { embedded: true }));
+  }
+  wrap.appendChild(content);
   return wrap;
 }
 
@@ -1477,43 +1569,125 @@ function modalTab(t: 'request' | 'response' | 'curl'): HTMLElement {
   return btn;
 }
 
-function renderRequestSection(raw: Record<string, unknown>): HTMLElement {
-  const wrap = el('div', 'p-4 space-y-4');
-  wrap.appendChild(sectionTitle('Headers', raw['requestHeaders'] ? '' : 'none captured'));
-  wrap.appendChild(renderHeadersTable(raw['requestHeaders'] as any));
-  wrap.appendChild(
-    sectionTitle(
-      'Body',
-      raw['requestBody'] ? `${raw['requestBodySize'] ?? '?'} B` : 'empty',
-    ),
+function modalSubTabBtn(
+  key: ModalSubTab,
+  label: string,
+  count: number | undefined,
+  active: boolean,
+): HTMLElement {
+  const badge =
+    count !== undefined
+      ? ` <span class="ml-1 text-[10px] tabular-nums px-1.5 rounded-full ${active ? 'bg-cyan-500/20 text-cyan-200' : 'bg-zinc-800 text-zinc-400'}">${count}</span>`
+      : '';
+  const btn = el(
+    'button',
+    [
+      'flex items-center text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-md transition-colors',
+      active
+        ? 'bg-zinc-800 text-zinc-100'
+        : 'text-zinc-500 hover:text-zinc-300',
+    ].join(' '),
+    `${label}${badge}`,
   );
-  wrap.appendChild(renderBodyBlock(raw['requestBody'] as string | undefined));
-  return wrap;
+  btn.addEventListener('click', () => {
+    state.modalSubTab = key;
+    scheduleUpdate();
+  });
+  return btn;
 }
 
-function renderResponseSection(raw: Record<string, unknown>): HTMLElement {
-  const wrap = el('div', 'p-4 space-y-4');
-  const status = raw['status'];
-  if (status != null) {
+/// Extract query params (from the URL / request log `query`) and form params
+/// (when the request body is `application/x-www-form-urlencoded`).
+function httpParams(raw: Record<string, unknown>): {
+  query: [string, string][];
+  form: [string, string][];
+} {
+  const query: [string, string][] = [];
+  let qs = '';
+  const url = raw['url'];
+  if (typeof url === 'string' && url.includes('?')) {
+    qs = url.slice(url.indexOf('?') + 1);
+  } else if (typeof raw['query'] === 'string') {
+    qs = raw['query'] as string;
+  }
+  query.push(...parseFormEncoded(qs));
+
+  const form: [string, string][] = [];
+  const ct = headerValue(
+    raw['requestHeaders'] as Record<string, string> | undefined,
+    'content-type',
+  );
+  const body = raw['requestBody'];
+  if (
+    typeof body === 'string' &&
+    ct &&
+    ct.toLowerCase().includes('application/x-www-form-urlencoded')
+  ) {
+    form.push(...parseFormEncoded(body));
+  }
+  return { query, form };
+}
+
+function parseFormEncoded(s: string): [string, string][] {
+  const out: [string, string][] = [];
+  for (const pair of s.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    const k = eq < 0 ? pair : pair.slice(0, eq);
+    const v = eq < 0 ? '' : pair.slice(eq + 1);
+    out.push([safeDecode(k), safeDecode(v)]);
+  }
+  return out;
+}
+
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s.replaceAll('+', ' '));
+  } catch {
+    return s;
+  }
+}
+
+function headerValue(
+  headers: Record<string, string> | undefined,
+  name: string,
+): string | undefined {
+  if (!headers) return undefined;
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return undefined;
+}
+
+function renderParamsSection(params: {
+  query: [string, string][];
+  form: [string, string][];
+}): HTMLElement {
+  if (params.query.length === 0 && params.form.length === 0) {
+    return el('div', 'text-zinc-500 text-xs', '<em>(no params)</em>');
+  }
+  const wrap = el('div', 'space-y-4');
+  if (params.query.length) {
     wrap.appendChild(
       el(
         'div',
-        'flex items-center gap-3 text-xs text-zinc-400',
-        `<span class="font-mono text-zinc-100">${status}</span>${raw['error'] ? `<span class="text-rose-400">${escapeHtml(String(raw['error']))}</span>` : ''}`,
+        'text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5',
+        `Query · ${params.query.length}`,
       ),
     );
+    wrap.appendChild(kvTable(params.query));
   }
-  wrap.appendChild(sectionTitle('Headers', raw['responseHeaders'] ? '' : 'none captured'));
-  wrap.appendChild(renderHeadersTable(raw['responseHeaders'] as any));
-  wrap.appendChild(
-    sectionTitle(
-      'Body',
-      raw['responseBody']
-        ? `${raw['responseBodySize'] ?? '?'} B${raw['responseBodyTruncated'] ? ' · truncated' : ''}`
-        : 'empty',
-    ),
-  );
-  wrap.appendChild(renderBodyBlock(raw['responseBody'] as string | undefined));
+  if (params.form.length) {
+    wrap.appendChild(
+      el(
+        'div',
+        'text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5 mt-3',
+        `Form · ${params.form.length}`,
+      ),
+    );
+    wrap.appendChild(kvTable(params.form));
+  }
   return wrap;
 }
 
@@ -1573,24 +1747,41 @@ function renderCurlSection(raw: Record<string, unknown>): HTMLElement {
   return wrap;
 }
 
-function renderHeadersTable(headers: Record<string, string> | undefined): HTMLElement {
+function renderHeadersTable(
+  headers: Record<string, string> | undefined,
+): HTMLElement {
   if (!headers || Object.keys(headers).length === 0) {
+    return el('div', 'text-zinc-500 text-xs', '<em>(none)</em>');
+  }
+  return kvTable(Object.entries(headers));
+}
+
+/// A key/value table styled like the headers panel. Used for headers and for
+/// query/form params.
+function kvTable(entries: [string, string][]): HTMLElement {
+  if (entries.length === 0) {
     return el('div', 'text-zinc-500 text-xs', '<em>(none)</em>');
   }
   const tbl = el(
     'div',
     'rounded-md ring-1 ring-zinc-800 divide-y divide-zinc-800 bg-zinc-900/30 font-mono text-xs',
   );
-  for (const [k, v] of Object.entries(headers)) {
-    const row = el('div', 'grid grid-cols-[200px_minmax(0,1fr)] gap-4 px-3 py-1.5');
-    row.appendChild(el('div', 'text-cyan-300 truncate', escapeHtml(k)));
+  for (const [k, v] of entries) {
+    const row = el(
+      'div',
+      'grid grid-cols-[200px_minmax(0,1fr)] gap-4 px-3 py-1.5',
+    );
+    row.appendChild(el('div', 'text-cyan-300 break-all', escapeHtml(k)));
     row.appendChild(el('div', 'text-zinc-200 break-all', escapeHtml(v)));
     tbl.appendChild(row);
   }
   return tbl;
 }
 
-function renderBodyBlock(body: string | undefined): HTMLElement {
+function renderBodyBlock(
+  body: string | undefined,
+  opts: { embedded?: boolean } = {},
+): HTMLElement {
   if (!body) return el('div', 'text-zinc-500 text-xs', '<em>(empty)</em>');
   const t = body.trim();
   let text = body;
@@ -1606,7 +1797,10 @@ function renderBodyBlock(body: string | undefined): HTMLElement {
       // leave as-is
     }
   }
-  return copyableCodeBlock(text, { html: isJson ? highlightJson(text) : null });
+  return copyableCodeBlock(text, {
+    html: isJson ? highlightJson(text) : null,
+    embedded: opts.embedded,
+  });
 }
 
 // Generic "code block with a copy button in the corner". When `html`
@@ -1615,16 +1809,21 @@ function renderBodyBlock(body: string | undefined): HTMLElement {
 // the raw `text`.
 function copyableCodeBlock(
   text: string,
-  opts: { html?: string | null; maxHeight?: string } = {},
+  opts: { html?: string | null; maxHeight?: string; embedded?: boolean } = {},
 ): HTMLElement {
+  // `embedded`: the block fills its parent and relies on the parent's single
+  // scroll container (no own scrollbar) — used inside the network detail's
+  // Body sub-tab so there's exactly one scrollbar.
   const pre = el(
     'pre',
     [
-      'relative rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 overflow-auto whitespace-pre-wrap break-all',
-      opts.maxHeight ? '' : 'max-h-[60vh]',
+      'relative rounded-md bg-zinc-900 ring-1 ring-zinc-800 p-3 text-[12px] font-mono text-zinc-200 whitespace-pre-wrap break-all',
+      opts.embedded
+        ? ''
+        : `overflow-auto ${opts.maxHeight ? '' : 'max-h-[60vh]'}`,
     ].join(' '),
   );
-  if (opts.maxHeight) pre.style.maxHeight = opts.maxHeight;
+  if (!opts.embedded && opts.maxHeight) pre.style.maxHeight = opts.maxHeight;
   const code = el('code', 'block pr-12');
   if (opts.html != null) {
     code.innerHTML = opts.html;
@@ -1688,15 +1887,6 @@ function highlightJson(src: string): string {
     out += escapeHtml(src.slice(lastIdx));
   }
   return out;
-}
-
-function sectionTitle(title: string, hint: string): HTMLElement {
-  const wrap = el('div', 'flex items-baseline gap-2');
-  wrap.appendChild(
-    el('h3', 'text-[10px] uppercase tracking-wider text-zinc-500', title),
-  );
-  if (hint) wrap.appendChild(el('span', 'text-[10px] text-zinc-600', hint));
-  return wrap;
 }
 
 function renderJsonBlock(obj: unknown): HTMLElement {
@@ -1963,6 +2153,7 @@ function renderConnectionPopup(dev: boolean): HTMLElement {
 function openModal(ev: TimelineEvent) {
   state.modalEvent = ev;
   state.modalTab = 'request';
+  state.modalSubTab = 'body';
   scheduleUpdate();
   // The list / SSE payload is a summary — headers + body live behind a
   // detail endpoint. Fetch them lazily so the Response / Request / Curl
@@ -2019,8 +2210,8 @@ function attachWheelZoom(tracksCol: HTMLElement) {
       );
       state.windowStart = cursorTime - frac * newDur;
       state.windowDuration = newDur;
-      const { max } = fullRange();
-      state.follow = state.windowStart + state.windowDuration >= max - 50;
+      state.follow = atLiveEdge();
+      if (state.follow) maybeFollow();
       scheduleUpdate();
     },
     { passive: false },
@@ -2044,19 +2235,23 @@ function attachMinimapHandlers(
     const x = e.clientX - rect.left;
     const t = minimapMStart + (x / rect.width) * minimapMDur;
     state.windowStart = t - state.windowDuration / 2;
-    state.follow =
-      state.windowStart + state.windowDuration >= fullRange().max - 50;
+    state.follow = atLiveEdge();
+    if (state.follow) maybeFollow();
     scheduleUpdate();
   });
   viewportEl.addEventListener('mousedown', (e) => {
     e.stopPropagation();
     const rect = trackEl.getBoundingClientRect();
+    // Stop following immediately so the follow-ticker doesn't snap the window
+    // back to "now" and fight the drag. We re-evaluate following on release.
+    state.follow = false;
     minimapDrag = {
       trackEl,
       px: e.clientX - rect.left,
       t: state.windowStart,
     };
     document.body.style.cursor = 'grabbing';
+    scheduleUpdate();
   });
 }
 
@@ -2066,15 +2261,18 @@ window.addEventListener('mousemove', (e) => {
   if (rect.width <= 0) return;
   const dx = e.clientX - rect.left - minimapDrag.px;
   const dt = (dx / rect.width) * minimapMDur;
+  // Just move the window; following stays off for the duration of the drag.
   state.windowStart = minimapDrag.t + dt;
-  state.follow =
-    state.windowStart + state.windowDuration >= fullRange().max - 50;
   scheduleUpdate();
 });
 window.addEventListener('mouseup', () => {
   if (!minimapDrag) return;
   minimapDrag = null;
   document.body.style.cursor = '';
+  // Re-engage following only if the drag ended back at the live edge.
+  state.follow = atLiveEdge();
+  if (state.follow) maybeFollow();
+  scheduleUpdate();
 });
 
 window.addEventListener('keydown', (e) => {

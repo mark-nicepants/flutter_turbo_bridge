@@ -66,7 +66,7 @@ class TurboBridgeHttpInterceptor implements HttpInterceptor {
   final String Function(BaseRequest request)? urlFor;
 
   /// Cap on the body size we record (bytes). Bodies above this cap
-  /// are truncated. Defaults to 16 KB.
+  /// are truncated. Defaults to 512 KB.
   final int maxBodySize;
 
   /// When true (the default) the interceptor buffers the response stream
@@ -83,7 +83,7 @@ class TurboBridgeHttpInterceptor implements HttpInterceptor {
 
   TurboBridgeHttpInterceptor({
     this.urlFor,
-    this.maxBodySize = 16 * 1024,
+    this.maxBodySize = 512 * 1024,
     this.captureResponseBody = true,
   });
 
@@ -102,22 +102,38 @@ class TurboBridgeHttpInterceptor implements HttpInterceptor {
 
   @override
   FutureOr<BaseRequest> interceptRequest({required BaseRequest request}) {
+    // `http_interceptor` v3 re-sends the *same* `BaseRequest` instance on a
+    // retry (e.g. a token-refresh `RetryPolicy`), so the inner client calls
+    // `finalize()` on it twice and throws `Bad state: Can't finalize a
+    // finalized Request`. As the last interceptor, the request we return is
+    // the one actually sent — so hand back a fresh copy on every call, giving
+    // each attempt (including retries) an unfinalized request to finalize.
+    //
+    // Only plain `Request`s can be copied safely; multipart / streamed bodies
+    // are one-shot streams (and aren't retriable), so we pass those through.
+    final sent = request is Request ? _copyHttpRequest(request) : request;
+
     final network = _networkOrNull();
     if (network != null) {
       try {
-        final body = request is Request ? request.body : null;
-        _inFlight[request] = network.start(
-          method: request.method,
-          url: urlFor?.call(request) ?? request.url.toString(),
-          requestHeaders: Map<String, String>.from(request.headers),
+        final body = sent is Request ? sent.body : null;
+        final nf = network.start(
+          method: sent.method,
+          url: urlFor?.call(sent) ?? sent.url.toString(),
+          requestHeaders: Map<String, String>.from(sent.headers),
           requestBody: body == null ? null : _cap(body),
-          requestBodySize: body?.length ?? request.contentLength,
+          requestBodySize: body?.length ?? sent.contentLength,
         );
+        // Correlate by both the sent copy (what `interceptResponse` sees on
+        // `response.request`) and the incoming request (what a `RetryPolicy`
+        // exception hook receives), so both paths find this handle.
+        _inFlight[sent] = nf;
+        if (!identical(sent, request)) _inFlight[request] = nf;
       } catch (_) {
         // Never let logging take down the actual HTTP call.
       }
     }
-    return request;
+    return sent;
   }
 
   @override
@@ -208,6 +224,19 @@ class TurboBridgeHttpInterceptor implements HttpInterceptor {
     if (s.length <= maxBodySize) return s;
     return s.substring(0, maxBodySize);
   }
+}
+
+/// Faithful, **unfinalized** copy of a [Request] — mirrors `package:http`'s
+/// `RetryClient._copyRequest` so a retried send finalizes a fresh request
+/// instead of throwing "Can't finalize a finalized Request".
+Request _copyHttpRequest(Request original) {
+  return Request(original.method, original.url)
+    ..followRedirects = original.followRedirects
+    ..maxRedirects = original.maxRedirects
+    ..persistentConnection = original.persistentConnection
+    ..headers.addAll(original.headers)
+    ..bodyBytes = original.bodyBytes
+    ..encoding = original.encoding;
 }
 
 /// [RetryPolicy] that records send-time failures for

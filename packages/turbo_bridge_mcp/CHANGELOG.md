@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- DevTools UI: reorganized the network detail into a primary
+  Request / Response / Curl nav plus a secondary Headers / Params / Body nav
+  with counts, and added a Params view listing query + form parameters. The
+  body now scrolls in a single region (no more nested scrollbars) and shows
+  larger payloads in full.
+- DevTools UI: fixed live-follow / timeline-overview dragging during an idle
+  session. Following is now anchored to wall-clock time, so dragging the
+  overview back into history works immediately (it no longer snaps back to the
+  end or sticks the viewport to the right edge until you reach an event), and
+  releasing at the right edge re-engages following.
+
 ## 0.3.0
 
 - Serves the Turbo Bridge **DevTools web UI on the host**. New

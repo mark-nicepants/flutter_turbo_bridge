@@ -27,10 +27,10 @@ class TurboBridgeDioInterceptor extends Interceptor {
   final String Function(RequestOptions options)? urlFor;
 
   /// Cap on the body size we record (bytes). Bodies above this cap
-  /// are recorded as `<body N bytes>`. Defaults to 16 KB.
+  /// are truncated to the prefix. Defaults to 512 KB.
   final int maxBodySize;
 
-  TurboBridgeDioInterceptor({this.urlFor, this.maxBodySize = 16 * 1024});
+  TurboBridgeDioInterceptor({this.urlFor, this.maxBodySize = 512 * 1024});
 
   /// Key used to stash the in-flight handle on `RequestOptions.extra`.
   static const String _key = '__turbo_bridge_inflight';
