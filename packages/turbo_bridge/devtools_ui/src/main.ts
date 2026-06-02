@@ -237,8 +237,35 @@ function fullRange(): { min: number; max: number } {
 
 function maybeFollow() {
   if (!state.follow) return;
-  const { max } = fullRange();
-  state.windowStart = max - state.windowDuration;
+  // Use wall-clock "now" rather than the timestamp of the latest event,
+  // so the window keeps gliding even when nothing is happening. The
+  // follow ticker (`ensureFollowTicker`) keeps this updating between
+  // events; this call covers the path where new events trigger upsert().
+  state.windowStart = Date.now() - state.windowDuration;
+  ensureFollowTicker();
+}
+
+// Smooth follow ticker: while `state.follow` is true, advance the
+// window every ~33ms (≈30fps) so the right edge stays pinned to "now"
+// even when no new events are arriving. Self-stops once follow flips
+// off, restarts whenever maybeFollow runs.
+let followRafId = 0;
+let lastFollowFrame = 0;
+const FOLLOW_TICK_MS = 33;
+function tickFollow(t: number) {
+  followRafId = 0;
+  if (!state.follow) return;
+  if (t - lastFollowFrame >= FOLLOW_TICK_MS) {
+    lastFollowFrame = t;
+    state.windowStart = Date.now() - state.windowDuration;
+    scheduleUpdate();
+  }
+  followRafId = requestAnimationFrame(tickFollow);
+}
+function ensureFollowTicker() {
+  if (followRafId || !state.follow) return;
+  lastFollowFrame = 0;
+  followRafId = requestAnimationFrame(tickFollow);
 }
 
 function windowEnd(): number {
@@ -945,9 +972,14 @@ function updateMinimap() {
   const cache = ui!.minimapMarksById;
 
   const { min, max } = fullRange();
-  const padding = Math.max((max - min) * 0.02, 200);
+  // Extend the minimap's right edge to include the live window. Without
+  // this, the right edge only advances when a new event arrives, so the
+  // viewport rectangle stalls against the wall between events while the
+  // main timeline keeps gliding.
+  const effectiveMax = Math.max(max, windowEnd());
+  const padding = Math.max((effectiveMax - min) * 0.02, 200);
   minimapMStart = min - padding;
-  minimapMDur = Math.max(max - min + padding * 2, 1000);
+  minimapMDur = Math.max(effectiveMax - min + padding * 2, 1000);
 
   const enabledIds = new Set(
     state.events
@@ -1902,6 +1934,7 @@ function boot() {
   update();
   void loadInitial();
   connectEvents();
+  ensureFollowTicker();
 }
 
 if (document.readyState === 'loading') {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Bumped reported `mcpServerVersion` to `0.1.6` so compatibility
+  metadata aligns with the released package. No MCP tool changes.
+
 ## 0.1.5
 
 - Added `flutter_recent_logs` MCP tool: returns recent app-emitted log

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Tracks turbo_bridge `0.1.6` for the bridgeVersion field in fixtures.
+  No client API changes.
+
 ## 0.1.5
 
 - Added `recentLogs({limit, level})` and `recentNetwork({limit})` methods
