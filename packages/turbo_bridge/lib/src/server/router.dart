@@ -25,6 +25,11 @@ class BridgeRouter {
   final bool includeTimingHeaders;
   final int? Function()? devToolsPortProvider;
 
+  /// Optional absolute project root on the developer's machine, advertised
+  /// via `/info` so the DevTools UI can resolve `package:` source links
+  /// without the developer entering it by hand. See [BridgeConfig.projectRoot].
+  final String? projectRoot;
+
   BridgeRouter({
     required this.screenshotService,
     required this.widgetTreeService,
@@ -35,6 +40,7 @@ class BridgeRouter {
     this.network,
     this.includeTimingHeaders = true,
     this.devToolsPortProvider,
+    this.projectRoot,
   });
 
   /// The shelf [Handler] for this router.
@@ -175,9 +181,11 @@ class BridgeRouter {
   Response _handleInfo(Request request) {
     final info = Map<String, dynamic>.from(appInfoService.getInfo());
     final devToolsPort = devToolsPortProvider?.call();
+    final root = projectRoot?.trim();
     info['devTools'] = {
       'enabled': devToolsPort != null,
       'port': devToolsPort,
+      if (root != null && root.isNotEmpty) 'projectRoot': root,
     };
     return Response.ok(
       jsonEncode(info),

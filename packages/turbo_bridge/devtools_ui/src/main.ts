@@ -70,11 +70,29 @@ interface State {
   // back on every change.
   settings: PersistedSettings;
   settingsOpen: boolean;
+  // Project root advertised by the bridge via `/info` (from the
+  // `TURBO_BRIDGE_PROJECT_ROOT` dart-define). Used to auto-seed a package's
+  // root the first time it's seen, so source links resolve with zero setup.
+  serverProjectRoot: string | null;
 }
 
 interface PersistedSettings {
   /** Editor to open `vscode://`-style links with. */
   ide: IdeKey;
+  /**
+   * Absolute path to the Flutter project on *this* (the developer's)
+   * machine, keyed by app package name — e.g.
+   * `{ my_app: '/Users/me/dev/my_app' }`. Used to turn `package:` source
+   * locations into ⌘-clickable file links: `package:<app>/x.dart` resolves
+   * to `<root>/lib/x.dart`. Needed on real devices, where the app can't
+   * resolve `package:` URIs itself (DDS blocks in-app VM service access).
+   *
+   * Keyed per package so the right root is restored automatically when you
+   * switch between projects. Seeded automatically from the bridge's
+   * advertised `projectRoot` (see `TURBO_BRIDGE_PROJECT_ROOT`) the first
+   * time a package is seen.
+   */
+  projectRoots: Record<string, string>;
 }
 
 type IdeKey = 'vscode' | 'vscode-insiders' | 'cursor' | 'idea' | 'zed' | 'none';
@@ -126,16 +144,34 @@ const IDES: IdeDef[] = [
 
 const SETTINGS_STORAGE_KEY = 'turbo_bridge_devtools_settings_v1';
 
+/// Bucket in `projectRoots` for a root that applies to any package without
+/// its own entry (e.g. a migrated legacy single root, or a manually set
+/// "all projects" default).
+const GLOBAL_ROOT_KEY = '*';
+
 function loadSettings(): PersistedSettings {
-  const fallback: PersistedSettings = { ide: 'vscode' };
+  const fallback: PersistedSettings = { ide: 'vscode', projectRoots: {} };
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
+    const parsed = JSON.parse(raw) as Partial<PersistedSettings> & {
+      // Legacy single-root field (pre per-package map).
+      projectRoot?: unknown;
+    };
     const ide = parsed.ide && IDES.some((i) => i.key === parsed.ide)
       ? (parsed.ide as IdeKey)
       : fallback.ide;
-    return { ide };
+    const projectRoots: Record<string, string> = {};
+    if (parsed.projectRoots && typeof parsed.projectRoots === 'object') {
+      for (const [k, v] of Object.entries(parsed.projectRoots)) {
+        if (typeof v === 'string' && v) projectRoots[k] = v;
+      }
+    }
+    // Migrate a legacy single root into a global default bucket.
+    if (typeof parsed.projectRoot === 'string' && parsed.projectRoot) {
+      projectRoots[GLOBAL_ROOT_KEY] ??= parsed.projectRoot;
+    }
+    return { ide, projectRoots };
   } catch {
     return fallback;
   }
@@ -174,6 +210,7 @@ const state: State = {
   modalTab: 'request',
   settings: loadSettings(),
   settingsOpen: false,
+  serverProjectRoot: null,
 };
 
 // ============================================================
@@ -1273,6 +1310,77 @@ function renderModalBody(ev: TimelineEvent): HTMLElement {
 /// - the source is a `package:` URI (we'd need pubspec resolution to
 ///   turn it into an absolute file path)
 /// - the user selected "No deep link"
+/// The most frequently-seen `package:<name>/` prefix among log source
+/// locations, taken to be the app's own package (whose root is the
+/// configured project root). Cached and recomputed only as new events
+/// arrive, so per-link rendering stays cheap.
+let appPackageCache: { eventCount: number; pkg: string | null } | null = null;
+function detectAppPackage(): string | null {
+  if (appPackageCache && appPackageCache.eventCount === state.events.length) {
+    return appPackageCache.pkg;
+  }
+  const counts = new Map<string, number>();
+  for (const ev of state.events) {
+    const f = ev.raw['sourceFile'];
+    if (typeof f !== 'string') continue;
+    const m = /^package:([^/]+)\//.exec(f);
+    if (!m) continue;
+    counts.set(m[1]!, (counts.get(m[1]!) ?? 0) + 1);
+  }
+  let pkg: string | null = null;
+  let best = 0;
+  for (const [name, n] of counts) {
+    if (n > best) {
+      best = n;
+      pkg = name;
+    }
+  }
+  appPackageCache = { eventCount: state.events.length, pkg };
+  return pkg;
+}
+
+/// The project root to use for the app's own package: an explicit
+/// per-package entry, else the global default, else the bridge-advertised
+/// root (which we then persist for this package so it sticks and can be
+/// edited). Returns '' when nothing is known yet.
+function activeProjectRoot(): string {
+  const app = detectAppPackage();
+  const roots = state.settings.projectRoots;
+  if (app && roots[app]) return roots[app]!;
+  if (roots[GLOBAL_ROOT_KEY]) return roots[GLOBAL_ROOT_KEY]!;
+  // Auto-seed from the bridge's advertised root the first time we can
+  // attribute it to a concrete package.
+  if (app && state.serverProjectRoot) {
+    setProjectRoot(app, state.serverProjectRoot);
+    return state.serverProjectRoot;
+  }
+  return state.serverProjectRoot ?? '';
+}
+
+/// Persist the project root for [pkg] (or clear it when [root] is empty).
+function setProjectRoot(pkg: string, root: string) {
+  const next = root.trim().replace(/[/\\]+$/, '');
+  const roots = state.settings.projectRoots;
+  if (next) roots[pkg] = next;
+  else delete roots[pkg];
+  saveSettings(state.settings);
+}
+
+/// Resolve a `package:<app>/<rest>` URI to an absolute file path using the
+/// active project root: `<root>/lib/<rest>`. Only the app's own package
+/// resolves (other packages — e.g. path dependencies — would need their own
+/// roots, which we don't know here). Returns null when there's no root, the
+/// URI isn't a package URI, or it isn't the app package.
+function resolvePackageUri(file: string): string | null {
+  const root = activeProjectRoot().replace(/[/\\]+$/, '');
+  if (!root) return null;
+  const m = /^package:([^/]+)\/(.+)$/.exec(file);
+  if (!m) return null;
+  const app = detectAppPackage();
+  if (!app || m[1] !== app) return null;
+  return `${root}/lib/${m[2]}`;
+}
+
 function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
   const file = raw['sourceFile'];
   const line = raw['sourceLine'];
@@ -1280,8 +1388,9 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
   const col = typeof raw['sourceColumn'] === 'number' ? raw['sourceColumn'] : 1;
 
   // Resolve to an absolute path for IDE deep links. `file:///abs/path`
-  // → `/abs/path`; `package:foo/bar.dart` can't be resolved here so we
-  // skip the deep link and show the path verbatim.
+  // → `/abs/path`. A `package:` URI from the app's own package is resolved
+  // against the configured project root (the app can't resolve it itself on
+  // a real device); other `package:` URIs stay verbatim with a copy button.
   let absPath: string | null = null;
   let displayPath = file;
   if (file.startsWith('file:///')) {
@@ -1290,6 +1399,12 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
   } else if (file.startsWith('file://')) {
     absPath = file.slice('file://'.length);
     displayPath = absPath;
+  } else if (file.startsWith('package:')) {
+    const resolved = resolvePackageUri(file);
+    if (resolved) {
+      absPath = resolved;
+      displayPath = resolved;
+    }
   }
 
   const segments = displayPath.split('/');
@@ -1325,7 +1440,9 @@ function renderSourceLink(raw: Record<string, unknown>): HTMLElement | null {
       `${escapeHtml(short)}:${line}:${col}`,
     );
     span.title = file.startsWith('package:')
-      ? `${file}:${line}:${col} — package: URIs can't be opened directly. Use "copy path" or switch IDE in settings.`
+      ? (activeProjectRoot()
+          ? `${file}:${line}:${col} — only the app's own package resolves to a file path; this is from another package.`
+          : `${file}:${line}:${col} — set "Project root" in settings to open package: links in your editor.`)
       : `${file}:${line}:${col}`;
     wrap.appendChild(span);
   }
@@ -1733,6 +1850,67 @@ function renderSettings(): HTMLElement {
     ),
   );
 
+  // Project root — enables ⌘-click for `package:` source links coming from
+  // the app's own package. Required on real devices, where the app can't
+  // resolve `package:` URIs itself (DDS blocks in-app VM service access).
+  // Auto-detected from the app package + the bridge's advertised root; the
+  // field below is the per-package override, persisted in this browser.
+  const detected = detectAppPackage();
+  const rootKey = detected ?? GLOBAL_ROOT_KEY;
+  const activeRoot = activeProjectRoot();
+  const isAuto =
+    !!detected &&
+    !state.settings.projectRoots[detected] &&
+    !state.settings.projectRoots[GLOBAL_ROOT_KEY] &&
+    !!activeRoot;
+
+  const rootHeader = el('div', 'flex items-center gap-2 mt-4 mb-1.5');
+  rootHeader.appendChild(
+    el(
+      'label',
+      'block text-[11px] uppercase tracking-wider text-zinc-500',
+      detected ? `Project root · ${escapeHtml(detected)}` : 'Project root',
+    ),
+  );
+  if (isAuto) {
+    rootHeader.appendChild(
+      el(
+        'span',
+        'text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 ring-1 ring-emerald-900',
+        'auto',
+      ),
+    );
+  }
+  panel.appendChild(rootHeader);
+
+  const rootInput = el(
+    'input',
+    'w-full h-9 px-3 rounded-md ring-1 ring-zinc-700 bg-zinc-900 text-zinc-200 text-sm font-mono hover:ring-zinc-500 focus:outline-none focus:ring-zinc-400',
+  ) as HTMLInputElement;
+  rootInput.type = 'text';
+  rootInput.spellcheck = false;
+  rootInput.placeholder = state.serverProjectRoot ?? '/Users/me/dev/my_app';
+  rootInput.value = activeRoot;
+  const commitRoot = () => {
+    const next = rootInput.value.trim().replace(/[/\\]+$/, '');
+    if (next === activeRoot.replace(/[/\\]+$/, '')) return;
+    setProjectRoot(rootKey, next);
+    scheduleUpdate();
+  };
+  rootInput.addEventListener('change', commitRoot);
+  rootInput.addEventListener('blur', commitRoot);
+  panel.appendChild(rootInput);
+
+  panel.appendChild(
+    el(
+      'p',
+      'mt-2 text-[11px] text-zinc-500 leading-relaxed',
+      isAuto
+        ? `Auto-detected from the app's <code class="text-zinc-400">TURBO_BRIDGE_PROJECT_ROOT</code>. Opens <code class="text-zinc-400">package:${escapeHtml(detected!)}/…</code> links (→ <code class="text-zinc-400">&lt;root&gt;/lib/…</code>). Edit to override; saved per package in this browser.`
+        : `Absolute path to your Flutter project on this machine. Opens <code class="text-zinc-400">package:${escapeHtml(detected ?? '<app>')}/…</code> source links (→ <code class="text-zinc-400">&lt;root&gt;/lib/…</code>). Set the <code class="text-zinc-400">TURBO_BRIDGE_PROJECT_ROOT</code> dart-define to populate this automatically.`,
+    ),
+  );
+
   backdrop.appendChild(panel);
   return backdrop;
 }
@@ -1919,12 +2097,19 @@ setInterval(() => {
 
 async function loadInitial() {
   try {
-    const [bridge, network, logs, nav] = await Promise.all([
+    const [bridge, network, logs, nav, info] = await Promise.all([
       api<{ entries: any[] }>('devtools/requests'),
       api<{ entries: any[] }>('devtools/network'),
       api<{ entries: any[] }>('devtools/logs'),
       api<{ entries: any[] }>('devtools/navigation').catch(() => ({ entries: [] })),
+      api<{ devTools?: { projectRoot?: string } }>('info').catch(
+        (): { devTools?: { projectRoot?: string } } => ({}),
+      ),
     ]);
+    const advertised = info.devTools?.projectRoot;
+    if (typeof advertised === 'string' && advertised.trim()) {
+      state.serverProjectRoot = advertised.trim().replace(/[/\\]+$/, '');
+    }
     bridge.entries.forEach((e) => upsert(fromRequest(e)));
     network.entries.forEach((e) => upsert(fromNetwork(e)));
     logs.entries.forEach((e) => upsert(fromLog(e)));

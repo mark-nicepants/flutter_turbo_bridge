@@ -30,6 +30,23 @@ class BridgeConfig {
   /// request log. The buffer is a ring; older entries are dropped.
   final int devToolsRequestLogSize;
 
+  /// Absolute path to this app's Flutter project on the developer's
+  /// machine, used by the DevTools UI to turn `package:<app>/x.dart` source
+  /// locations into ⌘-clickable `file://` editor links — the app itself
+  /// can't resolve `package:` URIs (DDS blocks in-app VM service access on
+  /// real devices).
+  ///
+  /// Defaults to the `TURBO_BRIDGE_PROJECT_ROOT` dart-define, so you can
+  /// wire it up once with no code change:
+  ///
+  /// ```sh
+  /// flutter run --dart-define=TURBO_BRIDGE_PROJECT_ROOT="$(pwd)"
+  /// ```
+  ///
+  /// When empty the DevTools UI falls back to a per-project value you enter
+  /// once in its settings (remembered per app package).
+  final String projectRoot;
+
   const BridgeConfig({
     this.port = 8888,
     this.host = '127.0.0.1',
@@ -39,5 +56,7 @@ class BridgeConfig {
     this.devToolsPort = 8889,
     this.devToolsHost = '127.0.0.1',
     this.devToolsRequestLogSize = 200,
+    this.projectRoot =
+        const String.fromEnvironment('TURBO_BRIDGE_PROJECT_ROOT'),
   });
 }

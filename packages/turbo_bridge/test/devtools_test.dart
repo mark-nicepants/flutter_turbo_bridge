@@ -167,34 +167,29 @@ void main() {
     });
   });
 
+  group('LogEntry.toJson source location', () {
+    test('passes the captured source URI through verbatim', () {
+      // The app emits the raw frame URI (`package:…` or `file://…`); the
+      // DevTools UI resolves `package:` URIs to file paths client-side.
+      const pkgUri = 'package:my_app/foo.dart';
+      final entry = LogEntry(
+        id: 1,
+        timestamp: DateTime.utc(2026),
+        level: LogLevel.info,
+        message: 'hi',
+        sourceFile: pkgUri,
+        sourceLine: 10,
+        sourceColumn: 3,
+      );
+
+      final json = entry.toJson();
+      expect(json['sourceFile'], pkgUri);
+      expect(json['sourceLine'], 10);
+      expect(json['sourceColumn'], 3);
+    });
+  });
+
   group('LogSink', () {
-    test('normalizeSourceFileForDevTools resolves package URIs when possible',
-        () {
-      final resolved = normalizeSourceFileForDevTools(
-        'package:sdb_octopus/shared/utils/sdb_print.dart',
-        packageUriResolver: (packageUri) => Uri.parse(
-          'file:///Users/mark/Developer/sdb/SDBGroep/src/'
-          'SDB.Octopus/lib/shared/utils/sdb_print.dart',
-        ),
-      );
-
-      expect(
-        resolved,
-        'file:///Users/mark/Developer/sdb/SDBGroep/src/'
-        'SDB.Octopus/lib/shared/utils/sdb_print.dart',
-      );
-    });
-
-    test('normalizeSourceFileForDevTools keeps package URIs when unresolved',
-        () {
-      final resolved = normalizeSourceFileForDevTools(
-        'package:sdb_octopus/shared/utils/sdb_print.dart',
-        packageUriResolver: (_) => null,
-      );
-
-      expect(resolved, 'package:sdb_octopus/shared/utils/sdb_print.dart');
-    });
-
     test('level convenience methods set the right level', () {
       final bus = DevToolsEventBus();
       final sink = LogSink(bus: bus);
@@ -1028,6 +1023,47 @@ void main() {
         'enabled': true,
         'port': 4567,
       });
+    });
+
+    test('/info advertises the configured projectRoot for the DevTools UI',
+        () async {
+      final withRoot = BridgeRouter(
+        screenshotService: ScreenshotService(),
+        widgetTreeService: WidgetTreeService(),
+        gestureService: GestureService(),
+        appInfoService: _FakeAppInfoService(),
+        findService: FindService(),
+        devToolsPortProvider: () => 4567,
+        projectRoot: '/Users/me/dev/my_app',
+      );
+
+      final res = await withRoot
+          .handler(Request('GET', Uri.parse('http://x:8888/info')));
+      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+
+      expect(body['devTools'], {
+        'enabled': true,
+        'port': 4567,
+        'projectRoot': '/Users/me/dev/my_app',
+      });
+    });
+
+    test('/info omits projectRoot when it is blank', () async {
+      final withBlankRoot = BridgeRouter(
+        screenshotService: ScreenshotService(),
+        widgetTreeService: WidgetTreeService(),
+        gestureService: GestureService(),
+        appInfoService: _FakeAppInfoService(),
+        findService: FindService(),
+        devToolsPortProvider: () => 4567,
+        projectRoot: '   ',
+      );
+
+      final res = await withBlankRoot
+          .handler(Request('GET', Uri.parse('http://x:8888/info')));
+      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+
+      expect((body['devTools'] as Map).containsKey('projectRoot'), isFalse);
     });
 
     test('/pick returns 400 when x/y are missing', () async {

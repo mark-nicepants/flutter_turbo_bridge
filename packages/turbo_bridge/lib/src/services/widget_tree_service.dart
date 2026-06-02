@@ -17,15 +17,14 @@ class WidgetNode {
   });
 
   Map<String, dynamic> toJson({bool compact = true}) {
-    final map = <String, dynamic>{
-      'type': type,
-    };
+    final map = <String, dynamic>{'type': type};
     if (!compact || key != null) map['key'] = key;
     if (!compact || rect != null) map['rect'] = rect;
     if (!compact || text != null) map['text'] = text;
     if (children.isNotEmpty) {
-      map['children'] =
-          children.map((c) => c.toJson(compact: compact)).toList();
+      map['children'] = children
+          .map((c) => c.toJson(compact: compact))
+          .toList();
     }
     return map;
   }
@@ -78,8 +77,9 @@ class WidgetTreeService {
 
   Element _stripFrameworkShell(Element element) {
     var current = element;
-    while (
-        _frameworkShellTypes.contains(current.widget.runtimeType.toString())) {
+    while (_frameworkShellTypes.contains(
+      current.widget.runtimeType.toString(),
+    )) {
       final child = _singleChildOf(current);
       if (child == null) {
         break;
@@ -278,9 +278,9 @@ class WidgetTreeService {
 
     return <String, dynamic>{
       'type': widget.runtimeType.toString(),
-      if (keyStr != null) 'key': keyStr,
-      if (rect != null) 'rect': rect,
-      if (text != null) 'text': text,
+      'key': ?keyStr,
+      'rect': ?rect,
+      'text': ?text,
     };
   }
 }

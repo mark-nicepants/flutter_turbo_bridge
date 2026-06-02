@@ -1,5 +1,4 @@
 import 'dart:collection';
-import 'dart:isolate';
 
 import 'event_bus.dart';
 
@@ -51,6 +50,10 @@ class LogEntry {
     this.sourceColumn,
   });
 
+  /// Serialize for the DevTools API / SSE stream. [sourceFile] is sent as
+  /// captured (e.g. `package:foo/bar.dart` or `file:///abs/path`); the
+  /// DevTools UI resolves `package:` URIs to ⌘-clickable file links using
+  /// the configured project root (the app can't resolve them itself).
   Map<String, dynamic> toJson() => {
         'id': id,
         'timestamp': timestamp.toIso8601String(),
@@ -72,23 +75,6 @@ class _SourceFrame {
   final int line;
   final int column;
   const _SourceFrame(this.file, this.line, this.column);
-}
-
-typedef PackageUriResolver = Uri? Function(Uri packageUri);
-
-/// Resolve `package:` source locations to a `file:` URI when the current
-/// isolate knows the package config. If resolution fails, keep the original
-/// source string so DevTools can still display and copy it.
-String normalizeSourceFileForDevTools(
-  String sourceFile, {
-  PackageUriResolver packageUriResolver = Isolate.resolvePackageUriSync,
-}) {
-  if (!sourceFile.startsWith('package:')) {
-    return sourceFile;
-  }
-
-  final resolved = packageUriResolver(Uri.parse(sourceFile));
-  return resolved?.toString() ?? sourceFile;
 }
 
 /// Parse the first user frame from a `StackTrace.current` string.
@@ -122,7 +108,10 @@ _SourceFrame? _firstUserFrame(
       remainingUserFramesToSkip--;
       continue;
     }
-    return _SourceFrame(normalizeSourceFileForDevTools(file), line, col);
+    // Keep the raw frame URI (`package:…` or `file://…`). Resolution to an
+    // absolute path for editor deep links happens later via the VM service
+    // in [SourceUriResolver]; the app isolate can't resolve `package:` URIs.
+    return _SourceFrame(file, line, col);
   }
   return null;
 }
