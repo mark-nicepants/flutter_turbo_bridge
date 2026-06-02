@@ -972,9 +972,14 @@ function updateMinimap() {
   const cache = ui!.minimapMarksById;
 
   const { min, max } = fullRange();
-  const padding = Math.max((max - min) * 0.02, 200);
+  // Extend the minimap's right edge to include the live window. Without
+  // this, the right edge only advances when a new event arrives, so the
+  // viewport rectangle stalls against the wall between events while the
+  // main timeline keeps gliding.
+  const effectiveMax = Math.max(max, windowEnd());
+  const padding = Math.max((effectiveMax - min) * 0.02, 200);
   minimapMStart = min - padding;
-  minimapMDur = Math.max(max - min + padding * 2, 1000);
+  minimapMDur = Math.max(effectiveMax - min + padding * 2, 1000);
 
   const enabledIds = new Set(
     state.events
