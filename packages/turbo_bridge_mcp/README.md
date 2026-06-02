@@ -206,7 +206,7 @@ Scrolls at a specific position.
 
 - `x` (number, required) — Scroll position X
 - `y` (number, required) — Scroll position Y
-- `dy` (number, optional) — Vertical scroll delta (negative = down)
+- `dy` (number, optional) — Vertical scroll delta (positive = content up, negative = content down)
 - `dx` (number, optional) — Horizontal scroll delta
 
 **Returns:** Success status plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `executionTimeMs`, and `roundTripMs`

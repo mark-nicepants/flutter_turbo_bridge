@@ -36,14 +36,17 @@ class GestureService {
 
       binding.handlePointerEvent(
         PointerDownEvent(
+          device: pointer,
           pointer: pointer,
           position: Offset(x, y),
+          buttons: kPrimaryButton,
           kind: PointerDeviceKind.touch,
         ),
       );
 
       binding.handlePointerEvent(
         PointerUpEvent(
+          device: pointer,
           pointer: pointer,
           position: Offset(x, y),
           kind: PointerDeviceKind.touch,
@@ -80,8 +83,10 @@ class GestureService {
 
       binding.handlePointerEvent(
         PointerDownEvent(
+          device: pointer,
           pointer: pointer,
           position: Offset(x, y),
+          buttons: kPrimaryButton,
           kind: PointerDeviceKind.touch,
         ),
       );
@@ -89,6 +94,7 @@ class GestureService {
       Future.delayed(duration, () {
         binding.handlePointerEvent(
           PointerUpEvent(
+            device: pointer,
             pointer: pointer,
             position: Offset(x, y),
             kind: PointerDeviceKind.touch,
@@ -128,8 +134,10 @@ class GestureService {
 
       binding.handlePointerEvent(
         PointerDownEvent(
+          device: pointer,
           pointer: pointer,
           position: Offset(startX, startY),
+          buttons: kPrimaryButton,
           kind: PointerDeviceKind.touch,
         ),
       );
@@ -138,11 +146,17 @@ class GestureService {
         final t = i / steps;
         final x = startX + (endX - startX) * t;
         final y = startY + (endY - startY) * t;
+        final previousT = (i - 1) / steps;
+        final previousX = startX + (endX - startX) * previousT;
+        final previousY = startY + (endY - startY) * previousT;
 
         binding.handlePointerEvent(
           PointerMoveEvent(
+            device: pointer,
             pointer: pointer,
             position: Offset(x, y),
+            delta: Offset(x - previousX, y - previousY),
+            buttons: kPrimaryButton,
             kind: PointerDeviceKind.touch,
           ),
         );
@@ -150,6 +164,7 @@ class GestureService {
 
       binding.handlePointerEvent(
         PointerUpEvent(
+          device: pointer,
           pointer: pointer,
           position: Offset(endX, endY),
           kind: PointerDeviceKind.touch,
@@ -173,8 +188,8 @@ class GestureService {
 
   /// Inject a scroll gesture at the given coordinates.
   ///
-  /// [dx] and [dy] are the scroll delta in logical pixels.
-  /// Positive [dy] scrolls down; negative scrolls up.
+  /// [dx] and [dy] are content deltas in logical pixels.
+  /// Positive [dy] scrolls content up, so the injected finger movement goes up.
   GestureResult scroll(
     double x,
     double y, {
@@ -189,8 +204,10 @@ class GestureService {
 
       binding.handlePointerEvent(
         PointerDownEvent(
+          device: pointer,
           pointer: pointer,
           position: Offset(x, y),
+          buttons: kPrimaryButton,
           kind: PointerDeviceKind.touch,
         ),
       );
@@ -199,10 +216,15 @@ class GestureService {
       final stepDy = dy / steps;
 
       for (var i = 1; i <= steps; i++) {
+        final nextX = x - stepDx * i;
+        final nextY = y - stepDy * i;
         binding.handlePointerEvent(
           PointerMoveEvent(
+            device: pointer,
             pointer: pointer,
-            position: Offset(x + stepDx * i, y + stepDy * i),
+            position: Offset(nextX, nextY),
+            delta: Offset(-stepDx, -stepDy),
+            buttons: kPrimaryButton,
             kind: PointerDeviceKind.touch,
           ),
         );
@@ -210,8 +232,9 @@ class GestureService {
 
       binding.handlePointerEvent(
         PointerUpEvent(
+          device: pointer,
           pointer: pointer,
-          position: Offset(x + dx, y + dy),
+          position: Offset(x - dx, y - dy),
           kind: PointerDeviceKind.touch,
         ),
       );

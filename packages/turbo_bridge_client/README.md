@@ -125,7 +125,7 @@ final result = await client.tapByKey('submit_btn');
 await client.swipe(200, 600, 200, 200); // startX, startY, endX, endY
 
 // Scroll at a position
-await client.scroll(200, 400, dy: -200); // scroll up
+await client.scroll(200, 400, dy: 200); // scroll up
 
 // Enter text into focused field
 await client.enterText('hello@example.com');

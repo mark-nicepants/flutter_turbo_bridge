@@ -382,7 +382,7 @@ Future<void> main(List<String> args) async {
         // Scroll
         print('  scroll...');
         try {
-          final d = await _bench(() => client.scroll(200, 400, dy: -100),
+          final d = await _bench(() => client.scroll(200, 400, dy: 100),
               count: iterCount);
           results.add(BenchmarkResult(
               name: 'bridge_scroll',

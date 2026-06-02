@@ -379,6 +379,31 @@ void main() {
       await tester.pump();
       expect(tapped, isTrue);
     });
+
+    testWidgets('scroll moves a scrollable using content delta semantics', (
+      tester,
+    ) async {
+      final controller = ScrollController();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView.builder(
+              controller: controller,
+              itemCount: 100,
+              itemBuilder: (context, index) =>
+                  SizedBox(height: 80, child: Text('Item $index')),
+            ),
+          ),
+        ),
+      );
+
+      final result = service.scroll(100, 300, dy: 120, steps: 6);
+      await tester.pump();
+
+      expect(result.success, isTrue);
+      expect(controller.offset, greaterThan(0));
+    });
   });
 
   group('AppInfoService', () {
