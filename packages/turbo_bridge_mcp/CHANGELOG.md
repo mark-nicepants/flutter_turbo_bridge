@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+- Serves the Turbo Bridge **DevTools web UI on the host**. New
+  `turbo_bridge_devtools` executable (`dart run turbo_bridge_mcp:devtools` or,
+  after `dart pub global activate`, `turbo_bridge_devtools`) starts a local
+  server that serves the UI and reverse-proxies the app's DevTools endpoints
+  and `events` SSE stream over the bridge port. The MCP server also starts it
+  automatically (disable with `--no-devtools`).
+- Resolves `package:` source links to absolute file paths from the project's
+  `package_config.json`, so DevTools call-site links are ⌘-clickable for every
+  package with no configuration.
+- Added a connection helper for the UI: status + one-click `adb forward`
+  reconnect when the device drops.
+- Simplified ADB forwarding to the single bridge port (the DevTools port is no
+  longer forwarded — the UI is hosted locally).
+- Bumped reported `mcpServerVersion` to `0.3.0`.
+
 ## 0.2.0
 
 - Added automatic ADB port forwarding: the MCP server sets up the

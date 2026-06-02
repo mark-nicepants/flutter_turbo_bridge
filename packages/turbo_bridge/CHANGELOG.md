@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0
+
+- **Breaking — the DevTools web UI is no longer served by the app.** It now
+  runs on the developer's machine (the `turbo_bridge_mcp` host server /
+  `turbo_bridge_devtools`), so the app no longer bundles the UI as a Flutter
+  asset and `turbo_bridge` can be added as a `dev_dependency`. With
+  `enableDevTools: true` the bridge exposes the DevTools data endpoints
+  (`devtools/requests`, `devtools/logs`, `devtools/navigation`,
+  `devtools/network`) and the `events` SSE stream on its single port.
+- **Breaking — `BridgeConfig` lost `devToolsPort` and `devToolsHost`** (there's
+  no second in-app server anymore), and `/info`'s `devTools` block is now just
+  `{ "enabled": <bool> }`.
+- **Breaking — removed `BridgeConfig.projectRoot` / the
+  `TURBO_BRIDGE_PROJECT_ROOT` dart-define.** Source-link resolution now happens
+  host-side: the DevTools UI resolves `package:` locations from the project's
+  `package_config.json`, for every package, with no configuration.
+- Fixed the scroll direction in `GestureService`.
+
 ## 0.2.0
 
 - **DevTools source links.** App log entries now capture their call site
