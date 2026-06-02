@@ -2,7 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+// Hide the http `Request`/`Response` so they don't clash with shelf's
+// same-named types used by the router tests below.
+import 'package:http_interceptor/http_interceptor.dart' hide Request, Response;
 import 'package:shelf/shelf.dart';
+import 'package:turbo_bridge/interceptors/http.dart';
 import 'package:turbo_bridge/src/devtools/devtools_router.dart';
 import 'package:turbo_bridge/src/devtools/event_bus.dart';
 import 'package:turbo_bridge/src/devtools/log_sink.dart';
@@ -436,6 +440,54 @@ void main() {
       bus.close();
     });
 
+    test('start surfaces an in-flight entry immediately', () async {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus);
+      final events = <Map<String, dynamic>>[];
+      final sub = bus.stream.listen((e) => events.add(e.payload));
+
+      final inflight = net.start(method: 'GET', url: 'https://x/slow');
+
+      // Visible on the timeline before the response arrives.
+      final pending = net.snapshot().single;
+      expect(pending.inFlight, isTrue);
+      expect(pending.status, isNull);
+      await Future<void>.delayed(Duration.zero);
+      expect(events.single['inFlight'], isTrue);
+
+      inflight.complete(status: 200);
+      await Future<void>.delayed(Duration.zero);
+
+      // Same entry, now finalized — not a second row.
+      expect(net.snapshot(), hasLength(1));
+      final done = net.snapshot().single;
+      expect(done.inFlight, isFalse);
+      expect(done.status, 200);
+
+      // Two emissions for one call: start (in-flight) then complete.
+      expect(events, hasLength(2));
+      expect(events[0]['inFlight'], isTrue);
+      expect(events[1]['inFlight'], isFalse);
+      expect(events[1]['status'], 200);
+
+      await sub.cancel();
+      await bus.close();
+    });
+
+    test('complete after the entry is evicted is a silent no-op', () {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus, capacity: 1);
+      final inflight = net.start(method: 'GET', url: 'a');
+      // Push past the cap so the in-flight entry is evicted.
+      net.record(method: 'GET', url: 'b');
+      expect(net.snapshot().map((e) => e.url), ['b']);
+
+      // Must not throw and must not resurrect the evicted entry.
+      expect(() => inflight.complete(status: 200), returnsNormally);
+      expect(net.snapshot().map((e) => e.url), ['b']);
+      bus.close();
+    });
+
     test('NetworkCall.toDetailJson includes optional fields', () {
       final bus = DevToolsEventBus();
       final net = NetworkLog(bus: bus);
@@ -454,6 +506,177 @@ void main() {
       expect(detail['responseHeaders'], {'content-type': 'application/json'});
       expect(detail['error'], contains('Exception: upstream'));
       bus.close();
+    });
+  });
+
+  group('TurboBridgeHttpInterceptor', () {
+    tearDown(() async {
+      await TurboBridge.instance.stop();
+    });
+
+    InterceptedClient buildClient({
+      required Future<StreamedResponse> Function(BaseRequest) onSend,
+      bool captureResponseBody = true,
+    }) {
+      return InterceptedClient.build(
+        interceptors: [
+          TurboBridgeHttpInterceptor(captureResponseBody: captureResponseBody),
+        ],
+        client: _StubClient(onSend),
+      );
+    }
+
+    test('records a successful exchange with request + response bodies',
+        () async {
+      final bridge = TurboBridge.createForTest();
+      final client = buildClient(
+        onSend: (request) async => StreamedResponse(
+          Stream.value(utf8.encode('{"ok":true}')),
+          200,
+          request: request,
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+
+      final resp = await client.post(
+        Uri.parse('https://api.example.com/items'),
+        body: '{"name":"a"}',
+      );
+
+      // Caller sees an untouched response.
+      expect(resp.statusCode, 200);
+      expect(resp.body, '{"ok":true}');
+
+      final calls = bridge.network.snapshot();
+      expect(calls.length, 1);
+      final call = calls.single;
+      expect(call.method, 'POST');
+      expect(call.url, 'https://api.example.com/items');
+      expect(call.status, 200);
+      expect(call.requestBody, '{"name":"a"}');
+      expect(call.responseBody, '{"ok":true}');
+      expect(call.responseBodySize, '{"ok":true}'.length);
+    });
+
+    test('records 4xx/5xx exchanges (no error hook needed)', () async {
+      final bridge = TurboBridge.createForTest();
+      final client = buildClient(
+        onSend: (request) async => StreamedResponse(
+          Stream.value(utf8.encode('nope')),
+          503,
+          request: request,
+        ),
+      );
+
+      await client.get(Uri.parse('https://api.example.com/down'));
+
+      final call = bridge.network.snapshot().single;
+      expect(call.status, 503);
+      expect(call.responseBody, 'nope');
+    });
+
+    test('captureResponseBody: false records metadata only', () async {
+      final bridge = TurboBridge.createForTest();
+      final client = buildClient(
+        captureResponseBody: false,
+        onSend: (request) async => StreamedResponse(
+          Stream.value(utf8.encode('{"ok":true}')),
+          200,
+          contentLength: 11,
+          request: request,
+        ),
+      );
+
+      final resp = await client.get(Uri.parse('https://api.example.com/items'));
+      // Stream is left untouched for the caller to drain.
+      expect(resp.body, '{"ok":true}');
+
+      final call = bridge.network.snapshot().single;
+      expect(call.status, 200);
+      expect(call.responseBody, isNull);
+      expect(call.responseBodySize, 11);
+    });
+
+    test('retryPolicy records send failures without adding retries',
+        () async {
+      final bridge = TurboBridge.createForTest();
+      final interceptor = TurboBridgeHttpInterceptor();
+      var attempts = 0;
+      final client = InterceptedClient.build(
+        interceptors: [interceptor],
+        retryPolicy: interceptor.retryPolicy(),
+        client: _StubClient((request) async {
+          attempts++;
+          throw const SocketException('connection refused');
+        }),
+      );
+
+      await expectLater(
+        client.get(Uri.parse('https://api.example.com/down')),
+        throwsA(isA<SocketException>()),
+      );
+
+      // Logging policy declines to retry, so the send ran exactly once.
+      expect(attempts, 1);
+      final call = bridge.network.snapshot().single;
+      expect(call.status, isNull);
+      expect(call.error, contains('connection refused'));
+      expect(call.url, 'https://api.example.com/down');
+    });
+
+    test('retryPolicy preserves a wrapped policy and logs each failed attempt',
+        () async {
+      final bridge = TurboBridge.createForTest();
+      final interceptor = TurboBridgeHttpInterceptor();
+      var attempts = 0;
+      final client = InterceptedClient.build(
+        interceptors: [interceptor],
+        retryPolicy: interceptor.retryPolicy(wrapping: _RetryOncePolicy()),
+        client: _StubClient((request) async {
+          attempts++;
+          if (attempts == 1) {
+            throw const SocketException('connection refused');
+          }
+          return StreamedResponse(
+            Stream.value(utf8.encode('{"ok":true}')),
+            200,
+            request: request,
+          );
+        }),
+      );
+
+      final resp = await client.get(Uri.parse('https://api.example.com/items'));
+      expect(resp.statusCode, 200);
+      expect(attempts, 2); // inner policy retried once
+
+      // First attempt logged as a failure, second as a success.
+      final calls = bridge.network.snapshot();
+      expect(calls.length, 2);
+      expect(calls.first.error, contains('connection refused'));
+      expect(calls.first.status, isNull);
+      expect(calls.last.status, 200);
+      expect(calls.last.responseBody, '{"ok":true}');
+    });
+
+    test('honors the urlFor override', () async {
+      final bridge = TurboBridge.createForTest();
+      final client = InterceptedClient.build(
+        interceptors: [
+          TurboBridgeHttpInterceptor(
+            urlFor: (r) => r.url.removeFragment().replace(query: '').path,
+          ),
+        ],
+        client: _StubClient(
+          (request) async => StreamedResponse(const Stream.empty(), 200,
+              request: request),
+        ),
+      );
+
+      await client.get(Uri.parse('https://api.example.com/items?token=secret'));
+
+      // The recorded URL came from urlFor, not request.url (which had the
+      // secret query string).
+      expect(bridge.network.snapshot().single.url, '/items');
     });
   });
 
@@ -879,4 +1102,38 @@ void main() {
       }
     }, tags: ['integration']);
   });
+}
+
+/// Inner [Client] for `InterceptedClient` whose `send` is supplied by the
+/// test, so no real network call is made.
+class _StubClient extends BaseClient {
+  _StubClient(this._onSend);
+
+  final Future<StreamedResponse> Function(BaseRequest) _onSend;
+
+  @override
+  Future<StreamedResponse> send(BaseRequest request) => _onSend(request);
+}
+
+/// Minimal [RetryPolicy] that retries once on any exception — used to check
+/// that `TurboBridgeHttpInterceptor.retryPolicy(wrapping: ...)` keeps the
+/// wrapped policy's behavior.
+class _RetryOncePolicy implements RetryPolicy {
+  @override
+  int get maxRetryAttempts => 1;
+
+  @override
+  bool shouldAttemptRetryOnException(Exception reason, BaseRequest request) =>
+      true;
+
+  @override
+  bool shouldAttemptRetryOnResponse(BaseResponse response) => false;
+
+  @override
+  Duration delayRetryAttemptOnException({required int retryAttempt}) =>
+      Duration.zero;
+
+  @override
+  Duration delayRetryAttemptOnResponse({required int retryAttempt}) =>
+      Duration.zero;
 }

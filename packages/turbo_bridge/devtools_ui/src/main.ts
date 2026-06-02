@@ -847,17 +847,29 @@ function updateTrack(cat: EventCategory) {
     }
   }
 
+  const now = Date.now();
   for (let i = 0; i < visible.length; i++) {
     const ev = visible[i]!;
     const next = visible[i + 1];
-    const naturalEnd = ev.timestamp + (ev.durationMs ?? 0);
+    // While in flight the bar grows to "now"; the follow ticker (and the
+    // idle ticker when follow is off) re-runs updateTrack so it animates.
+    const naturalEnd = ev.inFlight ? now : ev.timestamp + (ev.durationMs ?? 0);
     const clipEnd = next ? Math.min(naturalEnd, next.timestamp) : naturalEnd;
     const leftPct = tFrac(ev.timestamp);
     const widthPct = tFrac(clipEnd) - leftPct;
 
+    // The cached pill bakes in colour/dot/pulse, which change when an
+    // in-flight call resolves. Rebuild only when that signature flips.
+    const sig = `${ev.status}|${ev.inFlight ? 1 : 0}`;
     let node = cache.get(ev.id);
+    if (node && node.dataset['sig'] !== sig) {
+      node.remove();
+      cache.delete(ev.id);
+      node = undefined;
+    }
     if (!node) {
       node = buildPillNode(ev);
+      node.dataset['sig'] = sig;
       cache.set(ev.id, node);
       track.appendChild(node);
     }
@@ -902,8 +914,13 @@ function buildPillNode(ev: TimelineEvent): HTMLElement {
     });
     return bar;
   }
-  const colorCls =
-    ev.category === 'bridge' ? bridgePillColorCls(ev.status) : pillColorCls(ev.status);
+  // In-flight calls get a dedicated pulsing yellow palette so they read as
+  // "still running" at a glance, distinct from a completed 4xx warning.
+  const colorCls = ev.inFlight
+    ? 'bg-yellow-500/20 text-yellow-200 ring-yellow-500/40 animate-pulse'
+    : ev.category === 'bridge'
+      ? bridgePillColorCls(ev.status)
+      : pillColorCls(ev.status);
   const pill = el(
     'button',
     [
@@ -911,8 +928,11 @@ function buildPillNode(ev: TimelineEvent): HTMLElement {
       colorCls,
     ].join(' '),
   );
-  pill.innerHTML = `<span class="inline-block size-1 mr-1.5 rounded-full ${statusDotCls(ev.status)} shrink-0"></span><span class="truncate">${escapeHtml(ev.label)}</span>`;
-  pill.title = `${ev.label}${ev.durationMs ? ' · ' + ev.durationMs + ' ms' : ''}`;
+  const dotCls = ev.inFlight ? 'bg-yellow-400' : statusDotCls(ev.status);
+  pill.innerHTML = `<span class="inline-block size-1 mr-1.5 rounded-full ${dotCls} shrink-0"></span><span class="truncate">${escapeHtml(ev.label)}</span>`;
+  pill.title = ev.inFlight
+    ? `${ev.label} · in flight…`
+    : `${ev.label}${ev.durationMs ? ' · ' + ev.durationMs + ' ms' : ''}`;
   pill.addEventListener('click', (e) => {
     e.stopPropagation();
     openModal(ev);
@@ -1856,6 +1876,12 @@ function upsert(event: TimelineEvent) {
   maybeFollow();
 }
 
+/** Remove an event by id (e.g. a cancelled in-flight network call). */
+function removeEvent(id: string) {
+  const idx = state.events.findIndex((e) => e.id === id);
+  if (idx >= 0) state.events.splice(idx, 1);
+}
+
 function prune() {
   // Hard cap by count to defend against runaway streams.
   if (state.events.length > 5000) {
@@ -1883,7 +1909,12 @@ function prune() {
 setInterval(() => {
   const before = state.events.length;
   prune();
-  if (state.events.length !== before) scheduleUpdate();
+  // Repaint if anything was pruned, or if there are in-flight calls whose
+  // bars need to keep growing while "follow" is off (the follow ticker
+  // already covers the follow-on case at ~30fps).
+  if (state.events.length !== before || state.events.some((e) => e.inFlight)) {
+    scheduleUpdate();
+  }
 }, 1000);
 
 async function loadInitial() {
@@ -1917,7 +1948,12 @@ function connectEvents() {
     es.addEventListener(type, (e) => {
       try {
         const p = JSON.parse((e as MessageEvent).data).payload;
-        upsert(conv(p));
+        // A cancelled in-flight network call is retracted, not updated.
+        if (type === 'network' && p.removed) {
+          removeEvent(`network:app:${p.id}`);
+        } else {
+          upsert(conv(p));
+        }
         scheduleUpdate();
       } catch (err) {
         console.error(`bad ${type} event`, err);

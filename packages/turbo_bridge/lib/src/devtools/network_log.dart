@@ -3,6 +3,11 @@ import 'dart:collection';
 import 'event_bus.dart';
 
 /// One outbound HTTP call recorded by the app.
+///
+/// Request fields are fixed at creation; the response/outcome fields are
+/// mutable so an in-flight call (created by [NetworkLog.start]) can be
+/// finalized in place when [InFlightNetworkCall.complete] / `.fail` runs,
+/// and any held snapshot reflects the live state.
 class NetworkCall {
   final int id;
   final DateTime timestamp;
@@ -11,12 +16,16 @@ class NetworkCall {
   final Map<String, String>? requestHeaders;
   final String? requestBody;
   final int? requestBodySize;
-  final int? status;
-  final Map<String, String>? responseHeaders;
-  final String? responseBody;
-  final int? responseBodySize;
-  final int? durationMs;
-  final String? error;
+  int? status;
+  Map<String, String>? responseHeaders;
+  String? responseBody;
+  int? responseBodySize;
+  int? durationMs;
+  String? error;
+
+  /// True between [NetworkLog.start] and the matching `complete`/`fail`.
+  /// The DevTools UI renders in-flight calls as a growing yellow bar.
+  bool inFlight;
 
   NetworkCall({
     required this.id,
@@ -32,6 +41,7 @@ class NetworkCall {
     this.responseBodySize,
     this.durationMs,
     this.error,
+    this.inFlight = false,
   });
 
   Map<String, dynamic> toSummaryJson() => {
@@ -43,6 +53,7 @@ class NetworkCall {
         if (durationMs != null) 'durationMs': durationMs,
         if (error != null) 'error': error,
         if (responseBodySize != null) 'responseBodySize': responseBodySize,
+        'inFlight': inFlight,
       };
 
   Map<String, dynamic> toDetailJson() => {
@@ -82,10 +93,12 @@ class NetworkLog {
   /// Mark the start of a network call. Returns a handle to call
   /// `complete()` or `fail()` on when the response arrives.
   ///
-  /// Today this only buffers the request fields; the entry doesn't
-  /// appear in the timeline until you call `complete()` (or `fail()`).
-  /// See `docs/INFLIGHT_NETWORK_PLAN.md` for the planned evolution to
-  /// also surface in-flight requests in the DevTools timeline.
+  /// The call is surfaced on the timeline immediately as an in-flight
+  /// entry (`inFlight: true`): a ring-buffer row is added and a `network`
+  /// event is emitted right away, so a slow request is visible while it's
+  /// still running rather than only after it finishes. `complete()` /
+  /// `fail()` then mutate the same entry and re-emit with the final
+  /// fields. See `docs/INFLIGHT_NETWORK_PLAN.md`.
   ///
   /// Use this in HTTP interceptors (Dio, http_interceptor, GraphQL
   /// clients) so request/response correlation is automatic and the
@@ -98,15 +111,38 @@ class NetworkLog {
     int? requestBodySize,
     DateTime? timestamp,
   }) {
-    return InFlightNetworkCall._(
-      log: this,
+    final startedAt = timestamp ?? DateTime.now();
+    final entry = NetworkCall(
+      id: _nextId++,
+      timestamp: startedAt.toUtc(),
       method: method,
       url: url,
       requestHeaders: requestHeaders,
       requestBody: requestBody,
       requestBodySize: requestBodySize ?? requestBody?.length,
-      startedAt: timestamp ?? DateTime.now(),
+      inFlight: true,
     );
+    _entries.addLast(entry);
+    while (_entries.length > capacity) {
+      _entries.removeFirst();
+    }
+    _bus.emit(DevToolsEvent('network', entry.toSummaryJson()));
+    return InFlightNetworkCall._(log: this, entry: entry, startedAt: startedAt);
+  }
+
+  /// Re-emit an in-flight entry after it has been finalized. Drops
+  /// silently if the entry was evicted from the ring buffer while in
+  /// flight (the cap is an explicit "we lose old data" contract).
+  void _finalizeInFlight(NetworkCall entry) {
+    if (!_entries.contains(entry)) return;
+    _bus.emit(DevToolsEvent('network', entry.toSummaryJson()));
+  }
+
+  /// Remove an in-flight entry that was cancelled before completing.
+  /// Notifies the UI so the growing bar disappears.
+  void _removeInFlight(NetworkCall entry) {
+    if (!_entries.remove(entry)) return;
+    _bus.emit(DevToolsEvent('network', {'id': entry.id, 'removed': true}));
   }
 
   /// Record a completed (or failed) network call.
@@ -158,30 +194,21 @@ class NetworkLog {
 /// `complete`, `fail`, or `cancel`. Subsequent calls are no-ops, so
 /// the same handle is safe to share with both response and error
 /// hooks of an HTTP client.
+///
+/// The backing [NetworkCall] is already on the timeline (in-flight) when
+/// this handle is created; finalizing mutates that same entry in place.
 class InFlightNetworkCall {
   final NetworkLog _log;
-  final String _method;
-  final String _url;
-  final Map<String, String>? _requestHeaders;
-  final String? _requestBody;
-  final int? _requestBodySize;
+  final NetworkCall _entry;
   final DateTime _startedAt;
   bool _done = false;
 
   InFlightNetworkCall._({
     required NetworkLog log,
-    required String method,
-    required String url,
-    required Map<String, String>? requestHeaders,
-    required String? requestBody,
-    required int? requestBodySize,
+    required NetworkCall entry,
     required DateTime startedAt,
   })  : _log = log,
-        _method = method,
-        _url = url,
-        _requestHeaders = requestHeaders,
-        _requestBody = requestBody,
-        _requestBodySize = requestBodySize,
+        _entry = entry,
         _startedAt = startedAt;
 
   /// Whether this call has been finalized (completed, failed, or cancelled).
@@ -196,43 +223,34 @@ class InFlightNetworkCall {
   }) {
     if (_done) return;
     _done = true;
-    final endedAt = DateTime.now();
-    _log.record(
-      method: _method,
-      url: _url,
-      requestHeaders: _requestHeaders,
-      requestBody: _requestBody,
-      requestBodySize: _requestBodySize,
-      status: status,
-      responseHeaders: responseHeaders,
-      responseBody: responseBody,
-      responseBodySize: responseBodySize,
-      durationMs: endedAt.difference(_startedAt).inMilliseconds,
-      timestamp: _startedAt,
-    );
+    _entry
+      ..status = status
+      ..responseHeaders = responseHeaders
+      ..responseBody = responseBody
+      ..responseBodySize = responseBodySize ?? responseBody?.length
+      ..durationMs = DateTime.now().difference(_startedAt).inMilliseconds
+      ..inFlight = false;
+    _log._finalizeInFlight(_entry);
   }
 
   /// Record a failed request (network error, timeout, etc) and finalize.
   void fail(Object error, {int? status}) {
     if (_done) return;
     _done = true;
-    final endedAt = DateTime.now();
-    _log.record(
-      method: _method,
-      url: _url,
-      requestHeaders: _requestHeaders,
-      requestBody: _requestBody,
-      requestBodySize: _requestBodySize,
-      status: status,
-      durationMs: endedAt.difference(_startedAt).inMilliseconds,
-      error: error,
-      timestamp: _startedAt,
-    );
+    _entry
+      ..status = status
+      ..durationMs = DateTime.now().difference(_startedAt).inMilliseconds
+      ..error = error.toString()
+      ..inFlight = false;
+    _log._finalizeInFlight(_entry);
   }
 
   /// Drop the in-flight call without recording anything. Useful when
   /// the host app decides the request shouldn't be logged after all.
+  /// Removes the in-flight entry from the timeline.
   void cancel() {
+    if (_done) return;
     _done = true;
+    _log._removeInFlight(_entry);
   }
 }

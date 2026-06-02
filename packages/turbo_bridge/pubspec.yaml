@@ -14,8 +14,9 @@ topics:
   - widgets
 
 environment:
-  sdk: ^3.5.0
-  flutter: ">=3.24.0"
+  # http_interceptor ^3.0.0 requires Dart >=3.8.0 (Flutter 3.32+).
+  sdk: ^3.8.0
+  flutter: ">=3.32.0"
 
 dependencies:
   flutter:
@@ -28,7 +29,10 @@ dependencies:
   # adapter entry point, but pub.dev requires every `lib/` import to
   # come from `dependencies` (not `dev_dependencies`).
   dio: ^5.0.0
-  http: ^1.0.0
+  # The http adapter plugs into `http_interceptor`'s `HttpInterceptor`
+  # contract; it re-exports `package:http` (`BaseRequest`,
+  # `StreamedResponse`, ...) so we don't depend on `http` directly.
+  http_interceptor: ^3.0.0
 
 dev_dependencies:
   flutter_test:

@@ -32,8 +32,13 @@ export function fromRequest(e: any): TimelineEvent {
 
 /** Convert backend `network` entry (app-side HTTP) into a TimelineEvent. */
 export function fromNetwork(e: any): TimelineEvent {
-  const status: EventStatus =
-    e.error || (e.status && e.status >= 500)
+  const inFlight = e.inFlight === true;
+  // In-flight calls have no outcome yet — surface them as 'warn' (yellow),
+  // matching the pulsing in-flight bar, until the response sets the real
+  // status.
+  const status: EventStatus = inFlight
+    ? 'warn'
+    : e.error || (e.status && e.status >= 500)
       ? 'failed'
       : e.status >= 400
         ? 'warn'
@@ -42,9 +47,11 @@ export function fromNetwork(e: any): TimelineEvent {
     id: `network:app:${e.id}`,
     category: 'network',
     timestamp: new Date(e.timestamp).getTime(),
-    durationMs: e.durationMs,
+    // Leave duration open while in flight so the bar grows to "now".
+    durationMs: inFlight ? undefined : e.durationMs,
     label: `${e.method} ${e.url}`,
     status,
+    inFlight,
     raw: e,
   };
 }
