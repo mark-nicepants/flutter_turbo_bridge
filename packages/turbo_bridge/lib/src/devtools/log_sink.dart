@@ -108,9 +108,9 @@ _SourceFrame? _firstUserFrame(
       remainingUserFramesToSkip--;
       continue;
     }
-    // Keep the raw frame URI (`package:…` or `file://…`). Resolution to an
-    // absolute path for editor deep links happens later via the VM service
-    // in [SourceUriResolver]; the app isolate can't resolve `package:` URIs.
+    // Keep the raw frame URI (`package:…` or `file://…`). The DevTools UI
+    // resolves `package:` locations to absolute editor links from the
+    // configured project root; the app isolate can't resolve them itself.
     return _SourceFrame(file, line, col);
   }
   return null;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Added automatic ADB port forwarding: the MCP server sets up the
+  `adb forward` tunnels it needs to reach the in-app bridge on a connected
+  Android device or emulator, instead of requiring them to be wired up by
+  hand.
+- Bumped reported `mcpServerVersion` to `0.2.0` so compatibility metadata
+  aligns with the released package.
+
 ## 0.1.6
 
 - Bumped reported `mcpServerVersion` to `0.1.6` so compatibility

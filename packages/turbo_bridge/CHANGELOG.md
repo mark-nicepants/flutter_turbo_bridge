@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.0
+
+- **DevTools source links.** App log entries now capture their call site
+  (file, line, column) from the stack trace and surface it in the DevTools
+  log view. `package:<app>/…` locations resolve to ⌘-clickable editor links
+  using the project root (below); `file://` locations resolve directly. The
+  app no longer attempts to resolve `package:` URIs itself — that can't work
+  on a real device (DDS blocks in-app VM service access), so resolution
+  happens in the DevTools UI where the source files live.
+- **`BridgeConfig.projectRoot`.** New option giving the DevTools UI the
+  absolute path of your Flutter project on the host so it can turn
+  `package:` source locations into `file://` editor links. Defaults to the
+  `TURBO_BRIDGE_PROJECT_ROOT` dart-define, so you can wire it up with no
+  code change:
+  `flutter run --dart-define=TURBO_BRIDGE_PROJECT_ROOT="$(pwd)"`. The value
+  is advertised on `/info` under `devTools.projectRoot`; the DevTools UI
+  auto-applies it and also remembers a manually-entered root per app
+  package.
+- **In-flight network timeline.** `NetworkLog.start()` now emits an entry
+  immediately and `complete()` / `fail()` mutate it in place, so in-flight
+  requests appear on the DevTools timeline as growing, pulsing bars rather
+  than only showing up once they finish.
+
 ## 0.1.6
 
 - **HTTP interceptor adapters** for the two most common Flutter clients,

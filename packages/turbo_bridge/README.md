@@ -129,7 +129,7 @@ Returns app metadata.
   "pixelRatio": 3.0,
   "platform": "macos",
   "darkMode": false,
-  "bridgeVersion": "0.1.6",
+  "bridgeVersion": "0.2.0",
   "devTools": {
     "enabled": false,
     "port": null

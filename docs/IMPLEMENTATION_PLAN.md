@@ -310,7 +310,7 @@ Response: application/json
   "platform": "android",
   "darkMode": false,
   "currentRoute": "/home",
-  "bridgeVersion": "0.1.6",
+  "bridgeVersion": "0.2.0",
   "devTools": {
     "enabled": true,
     "port": 8889
