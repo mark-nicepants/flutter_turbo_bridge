@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780396343783,
+  "lastUpdate": 1780409086852,
   "repoUrl": "https://github.com/mark-nicepants/flutter_turbo_bridge",
   "entries": {
     "Flutter Turbo Bridge": [
@@ -3328,6 +3328,230 @@ window.BENCHMARK_DATA = {
           {
             "name": "bridge_full_loop (p99)",
             "value": 35,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_full_loop (target)",
+            "value": 100,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mark@mooibroek.dev",
+            "name": "Mark Mooibroek",
+            "username": "mark-nicepants"
+          },
+          "committer": {
+            "email": "mark@mooibroek.dev",
+            "name": "Mark Mooibroek",
+            "username": "mark-nicepants"
+          },
+          "distinct": true,
+          "id": "d3a504d14f866dd88e17cd091da6522c8ccde8c5",
+          "message": "fix: correct scroll direction in GestureService and update documentation",
+          "timestamp": "2026-06-02T16:01:27+02:00",
+          "tree_id": "1911ee3d98efb43c0ed1896c07858c19650545d6",
+          "url": "https://github.com/mark-nicepants/flutter_turbo_bridge/commit/d3a504d14f866dd88e17cd091da6522c8ccde8c5"
+        },
+        "date": 1780409084606,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bridge_health (p50)",
+            "value": 1,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_health (p95)",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_health (p99)",
+            "value": 7,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_health (target)",
+            "value": 10,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_screenshot (p50)",
+            "value": 29,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_screenshot (p95)",
+            "value": 41,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_screenshot (p99)",
+            "value": 67,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_screenshot (target)",
+            "value": 50,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_widget_tree (p50)",
+            "value": 2,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_widget_tree (p95)",
+            "value": 6,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_widget_tree (p99)",
+            "value": 6,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_widget_tree (target)",
+            "value": 40,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_tap (p50)",
+            "value": 2,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_tap (p95)",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_tap (p99)",
+            "value": 14,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_tap (target)",
+            "value": 30,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_swipe (p50)",
+            "value": 2,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_swipe (p95)",
+            "value": 6,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_swipe (p99)",
+            "value": 7,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_swipe (target)",
+            "value": 30,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_scroll (p50)",
+            "value": 2,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_scroll (p95)",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_scroll (p99)",
+            "value": 6,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_scroll (target)",
+            "value": 30,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_find (p50)",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_find (p95)",
+            "value": 6,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_find (p99)",
+            "value": 10,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_find (target)",
+            "value": 20,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_enter_text (p50)",
+            "value": 1,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_enter_text (p95)",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_enter_text (p99)",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_enter_text (target)",
+            "value": 30,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_app_info (p50)",
+            "value": 1,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_app_info (p95)",
+            "value": 2,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_app_info (p99)",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_app_info (target)",
+            "value": 10,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_full_loop (p50)",
+            "value": 31,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_full_loop (p95)",
+            "value": 39,
+            "unit": "ms"
+          },
+          {
+            "name": "bridge_full_loop (p99)",
+            "value": 50,
             "unit": "ms"
           },
           {
