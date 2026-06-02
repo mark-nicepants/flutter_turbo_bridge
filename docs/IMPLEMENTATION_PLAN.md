@@ -141,19 +141,21 @@ flutter_turbo_bridge/
 Priority order (by impact on AI feedback loop):
 
 1. **ScreenshotService** — Capture current frame as PNG bytes
-  - In debug mode, prefer `RenderView.debugLayer` plus `OffsetLayer.toImage()` to capture the composed root scene
-  - Fall back to `RenderRepaintBoundary.toImage()` on a visible full-surface repaint boundary when the root layer is unavailable
-  - Skip offstage subtrees in the fallback path so hidden or previous routes do not win capture selection
-   - Return raw bytes (no base64 encoding over HTTP — binary response)
-   - Target: <20ms including PNG encoding
+
+- In debug mode, prefer `RenderView.debugLayer` plus `OffsetLayer.toImage()` to capture the composed root scene
+- Fall back to `RenderRepaintBoundary.toImage()` on a visible full-surface repaint boundary when the root layer is unavailable
+- Skip offstage subtrees in the fallback path so hidden or previous routes do not win capture selection
+- Return raw bytes (no base64 encoding over HTTP — binary response)
+- Target: <20ms including PNG encoding
 
 2. **WidgetTreeService** — Extract widget tree as compact JSON
    - Walk `WidgetsBinding.instance.rootElement`
-  - Normalize away framework shell wrappers above the app root
-  - Support optional coordinate-focused subtree capture with ancestor context
-  - Output: `{type, key, size, position, children, text, semantics}`
-   - Configurable depth limit
-   - Target: <15ms for typical app (100-500 widgets)
+
+- Normalize away framework shell wrappers above the app root
+- Support optional coordinate-focused subtree capture with ancestor context
+- Output: `{type, key, size, position, children, text, semantics}`
+- Configurable depth limit
+- Target: <15ms for typical app (100-500 widgets)
 
 3. **GestureService** — Inject pointer events
    - Use `WidgetsBinding.instance.handlePointerEvent()`
@@ -308,7 +310,11 @@ Response: application/json
   "platform": "android",
   "darkMode": false,
   "currentRoute": "/home",
-  "bridgeVersion": "0.1.6"
+  "bridgeVersion": "0.1.6",
+  "devTools": {
+    "enabled": true,
+    "port": 8889
+  }
 }
 ```
 
@@ -326,25 +332,25 @@ The MCP server is a standalone Dart CLI that exposes the Turbo Bridge to any MCP
 
 ### MCP Tools
 
-| Tool Name | Description | Input Schema | Output |
-|-----------|-------------|-------------|--------|
-| `flutter_screenshot` | Capture app screenshot | `{pixelRatio?: number, delayMs?: number}` | `ImageContent` (PNG base64) + `TextContent` metadata |
-| `flutter_widget_tree` | Get widget tree | `{depth?: integer, x?: number, y?: number, ancestorLevels?: integer}` | `TextContent` (JSON) |
-| `flutter_tap` | Tap at screen coordinates | `{x: number, y: number}` | `TextContent` (result JSON) |
-| `flutter_app_info` | Get app metadata | `{}` | `TextContent` (JSON) |
+| Tool Name             | Description                  | Input Schema                                                                                                                                                                  | Output                                                |
+| --------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `flutter_screenshot`  | Capture app screenshot       | `{pixelRatio?: number, delayMs?: number}`                                                                                                                                     | `ImageContent` (PNG base64) + `TextContent` metadata  |
+| `flutter_widget_tree` | Get widget tree              | `{depth?: integer, x?: number, y?: number, ancestorLevels?: integer}`                                                                                                         | `TextContent` (JSON)                                  |
+| `flutter_tap`         | Tap at screen coordinates    | `{x: number, y: number}`                                                                                                                                                      | `TextContent` (result JSON)                           |
+| `flutter_app_info`    | Get app metadata             | `{}`                                                                                                                                                                          | `TextContent` (JSON)                                  |
 | `flutter_find_widget` | Find widget by text/key/type | `{text?: string, key?: string, type?: string, visibleOnly?: boolean, currentRouteOnly?: boolean, interactiveOnly?: boolean, nearX?: number, nearY?: number, limit?: integer}` | `TextContent` (JSON with ranked coords + diagnostics) |
 
 ### MCP Resources
 
-| URI | Description | MIME Type |
-|-----|-------------|-----------|
-| `flutter://app/info` | Live app metadata | `application/json` |
+| URI                  | Description                  | MIME Type          |
+| -------------------- | ---------------------------- | ------------------ |
+| `flutter://app/info` | Live app metadata            | `application/json` |
 | `flutter://app/tree` | Current widget tree snapshot | `application/json` |
 
 ### MCP Prompts
 
-| Prompt Name | Description | Arguments |
-|-------------|-------------|-----------|
+| Prompt Name       | Description                                         | Arguments          |
+| ----------------- | --------------------------------------------------- | ------------------ |
 | `flutter_inspect` | Inspect current app state — takes screenshot + tree | `{focus?: string}` |
 
 ### CLI Usage
@@ -374,6 +380,7 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
 ### Tool Contracts
 
 #### `flutter_screenshot`
+
 ```json
 {
   "name": "flutter_screenshot",
@@ -390,10 +397,12 @@ dart run turbo_bridge_mcp --bridge-port 8888 --vm-uri ws://127.0.0.1:PORT/TOKEN/
   }
 }
 ```
+
 **Response**: `ImageContent` with base64 PNG data and `image/png` MIME type.
 The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.completedAtUtc`, `captureTimeMs`, and `roundTripMs`.
 
 #### `flutter_widget_tree`
+
 ```json
 {
   "name": "flutter_widget_tree",
@@ -423,9 +432,11 @@ The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.complete
   }
 }
 ```
+
 **Response**: `TextContent` with JSON widget tree plus `_meta.startedAtUtc`, `_meta.completedAtUtc`, `captureTimeMs`, and `roundTripMs`.
 
 #### `flutter_tap`
+
 ```json
 {
   "name": "flutter_tap",
@@ -433,16 +444,21 @@ The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.complete
   "inputSchema": {
     "type": "object",
     "properties": {
-      "x": {"type": "number", "description": "X coordinate in logical pixels"},
-      "y": {"type": "number", "description": "Y coordinate in logical pixels"}
+      "x": {
+        "type": "number",
+        "description": "X coordinate in logical pixels"
+      },
+      "y": { "type": "number", "description": "Y coordinate in logical pixels" }
     },
     "required": ["x", "y"]
   }
 }
 ```
+
 **Response**: `TextContent` with JSON `{success, _meta: {startedAtUtc, completedAtUtc, executionTimeMs, roundTripMs}}`.
 
 #### `flutter_find_widget`
+
 ```json
 {
   "name": "flutter_find_widget",
@@ -450,22 +466,49 @@ The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.complete
   "inputSchema": {
     "type": "object",
     "properties": {
-      "text": {"type": "string", "description": "Find by text content (exact or substring)"},
-      "key": {"type": "string", "description": "Find by ValueKey string"},
-      "type": {"type": "string", "description": "Find by widget type name"},
-      "visibleOnly": {"type": "boolean", "description": "Restrict results to the visible viewport", "default": true},
-      "currentRouteOnly": {"type": "boolean", "description": "Restrict results to the current top route when possible", "default": false},
-      "interactiveOnly": {"type": "boolean", "description": "Restrict results to widgets with an interactive tap target", "default": false},
-      "nearX": {"type": "number", "description": "Optional X coordinate to bias ranking toward"},
-      "nearY": {"type": "number", "description": "Optional Y coordinate to bias ranking toward"},
-      "limit": {"type": "integer", "description": "Maximum number of matches to return", "default": 10}
+      "text": {
+        "type": "string",
+        "description": "Find by text content (exact or substring)"
+      },
+      "key": { "type": "string", "description": "Find by ValueKey string" },
+      "type": { "type": "string", "description": "Find by widget type name" },
+      "visibleOnly": {
+        "type": "boolean",
+        "description": "Restrict results to the visible viewport",
+        "default": true
+      },
+      "currentRouteOnly": {
+        "type": "boolean",
+        "description": "Restrict results to the current top route when possible",
+        "default": false
+      },
+      "interactiveOnly": {
+        "type": "boolean",
+        "description": "Restrict results to widgets with an interactive tap target",
+        "default": false
+      },
+      "nearX": {
+        "type": "number",
+        "description": "Optional X coordinate to bias ranking toward"
+      },
+      "nearY": {
+        "type": "number",
+        "description": "Optional Y coordinate to bias ranking toward"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum number of matches to return",
+        "default": 10
+      }
     }
   }
 }
 ```
+
 **Response**: `TextContent` with JSON `{found, count, results, _meta: {startedAtUtc, completedAtUtc, searchTimeMs, roundTripMs}}` where each result may also include `matchedBy`, `score`, `isVisible`, `isCurrentRoute`, `routeName`, `tapTargetType`, and `tapTargetKey`.
 
 #### `flutter_app_info`
+
 ```json
 {
   "name": "flutter_app_info",
@@ -476,6 +519,7 @@ The accompanying metadata content includes `_meta.startedAtUtc`, `_meta.complete
   }
 }
 ```
+
 **Response**: `TextContent` with JSON app metadata plus `_meta.startedAtUtc` and `_meta.completedAtUtc`.
 The MCP response also includes `mcpServerVersion`, `mcpVersionStatus`, and an `updateHint` when the running MCP package is older than the bridge package in the app.
 

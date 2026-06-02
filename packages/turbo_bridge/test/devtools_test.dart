@@ -3,12 +3,33 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
-import 'package:turbo_bridge/turbo_bridge.dart';
 import 'package:turbo_bridge/src/devtools/devtools_router.dart';
 import 'package:turbo_bridge/src/devtools/event_bus.dart';
+import 'package:turbo_bridge/src/devtools/log_sink.dart';
 import 'package:turbo_bridge/src/devtools/request_log.dart';
 import 'package:turbo_bridge/src/devtools/static_handler.dart';
 import 'package:turbo_bridge/src/server/router.dart';
+import 'package:turbo_bridge/turbo_bridge.dart';
+
+LogEntry _wrappedInfoLog(LogSink sink) {
+  return sink.info('wrapped', sourceFrameSkip: 1);
+}
+
+class _FakeAppInfoService extends AppInfoService {
+  @override
+  Map<String, dynamic> getInfo() {
+    return {
+      'screenWidth': 390.0,
+      'screenHeight': 844.0,
+      'pixelRatio': 3.0,
+      'platform': 'android',
+      'darkMode': false,
+      'currentRoute': '/home',
+      'bridgeVersion': 'test',
+      'locale': 'en',
+    };
+  }
+}
 
 void main() {
   group('RequestLog', () {
@@ -143,6 +164,33 @@ void main() {
   });
 
   group('LogSink', () {
+    test('normalizeSourceFileForDevTools resolves package URIs when possible',
+        () {
+      final resolved = normalizeSourceFileForDevTools(
+        'package:sdb_octopus/shared/utils/sdb_print.dart',
+        packageUriResolver: (packageUri) => Uri.parse(
+          'file:///Users/mark/Developer/sdb/SDBGroep/src/'
+          'SDB.Octopus/lib/shared/utils/sdb_print.dart',
+        ),
+      );
+
+      expect(
+        resolved,
+        'file:///Users/mark/Developer/sdb/SDBGroep/src/'
+        'SDB.Octopus/lib/shared/utils/sdb_print.dart',
+      );
+    });
+
+    test('normalizeSourceFileForDevTools keeps package URIs when unresolved',
+        () {
+      final resolved = normalizeSourceFileForDevTools(
+        'package:sdb_octopus/shared/utils/sdb_print.dart',
+        packageUriResolver: (_) => null,
+      );
+
+      expect(resolved, 'package:sdb_octopus/shared/utils/sdb_print.dart');
+    });
+
     test('level convenience methods set the right level', () {
       final bus = DevToolsEventBus();
       final sink = LogSink(bus: bus);
@@ -218,6 +266,17 @@ void main() {
       expect(entry.sourceLine, isNotNull);
       expect(entry.sourceLine!, greaterThan(0));
       expect(entry.sourceColumn, isNotNull);
+      bus.close();
+    });
+
+    test('sourceFrameSkip skips wrapper helpers when requested', () {
+      final bus = DevToolsEventBus();
+      final sink = LogSink(bus: bus);
+      final entry = _wrappedInfoLog(sink); // expect this file, not helper body
+      expect(entry.sourceFile, isNotNull);
+      expect(entry.sourceFile, contains('devtools_test.dart'));
+      expect(entry.sourceLine, isNotNull);
+      expect(entry.sourceLine!, greaterThan(0));
       bus.close();
     });
 
@@ -728,6 +787,26 @@ void main() {
       expect((entries.first as Map)['url'], 'https://api.example.com/x');
     });
 
+    test('/info includes the active DevTools port when available', () async {
+      final withDevTools = BridgeRouter(
+        screenshotService: ScreenshotService(),
+        widgetTreeService: WidgetTreeService(),
+        gestureService: GestureService(),
+        appInfoService: _FakeAppInfoService(),
+        findService: FindService(),
+        devToolsPortProvider: () => 4567,
+      );
+
+      final res = await withDevTools
+          .handler(Request('GET', Uri.parse('http://x:8888/info')));
+      final body = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+
+      expect(body['devTools'], {
+        'enabled': true,
+        'port': 4567,
+      });
+    });
+
     test('/pick returns 400 when x/y are missing', () async {
       final res =
           await router.handler(Request('GET', Uri.parse('http://x:8888/pick')));
@@ -751,6 +830,18 @@ void main() {
 
         // Hit the JSON-API port — should be recorded in the log.
         final client = HttpClient();
+        final infoReq = await client
+            .getUrl(Uri.parse('http://127.0.0.1:${bridge.port}/info'));
+        final infoResp = await infoReq.close();
+        expect(infoResp.statusCode, 200);
+        final infoBody = jsonDecode(
+          await infoResp.transform(utf8.decoder).join(),
+        ) as Map<String, dynamic>;
+        expect(infoBody['devTools'], {
+          'enabled': true,
+          'port': bridge.devToolsPort,
+        });
+
         final req = await client
             .getUrl(Uri.parse('http://127.0.0.1:${bridge.port}/health'));
         final resp = await req.close();

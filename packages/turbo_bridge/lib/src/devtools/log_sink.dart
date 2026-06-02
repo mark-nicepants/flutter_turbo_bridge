@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:isolate';
 
 import 'event_bus.dart';
 
@@ -73,18 +74,39 @@ class _SourceFrame {
   const _SourceFrame(this.file, this.line, this.column);
 }
 
+typedef PackageUriResolver = Uri? Function(Uri packageUri);
+
+/// Resolve `package:` source locations to a `file:` URI when the current
+/// isolate knows the package config. If resolution fails, keep the original
+/// source string so DevTools can still display and copy it.
+String normalizeSourceFileForDevTools(
+  String sourceFile, {
+  PackageUriResolver packageUriResolver = Isolate.resolvePackageUriSync,
+}) {
+  if (!sourceFile.startsWith('package:')) {
+    return sourceFile;
+  }
+
+  final resolved = packageUriResolver(Uri.parse(sourceFile));
+  return resolved?.toString() ?? sourceFile;
+}
+
 /// Parse the first user frame from a `StackTrace.current` string.
 ///
 /// Frames produced by `LogSink.add` itself (or one of the public
 /// shortcut methods like `info`/`warn`) are skipped so we land on the
 /// caller's code. Returns null when no usable frame is found —
 /// typically in release/AOT builds where line info is stripped.
-_SourceFrame? _firstUserFrame(StackTrace trace) {
+_SourceFrame? _firstUserFrame(
+  StackTrace trace, {
+  int extraFramesToSkip = 0,
+}) {
   // Standard VM frames look like:
   //   #2      MyClass.doStuff (file:///abs/path.dart:42:5)
   //   #3      _RootZone.runUnary (dart:async/zone.dart:1407:47)
   // Web frames have a different shape; we still try the same regex.
   final pattern = RegExp(r'\(([^()]+):(\d+):(\d+)\)');
+  var remainingUserFramesToSkip = extraFramesToSkip;
   for (final raw in trace.toString().split('\n')) {
     // Skip the bookkeeping frames inside this file.
     if (raw.contains('log_sink.dart')) continue;
@@ -96,7 +118,11 @@ _SourceFrame? _firstUserFrame(StackTrace trace) {
     final line = int.tryParse(m.group(2)!);
     final col = int.tryParse(m.group(3)!);
     if (line == null || col == null) continue;
-    return _SourceFrame(file, line, col);
+    if (remainingUserFramesToSkip > 0) {
+      remainingUserFramesToSkip--;
+      continue;
+    }
+    return _SourceFrame(normalizeSourceFileForDevTools(file), line, col);
   }
   return null;
 }
@@ -124,7 +150,9 @@ class LogSink {
   /// peeking at `StackTrace.current` and skipping frames inside this
   /// file. DevTools renders the result as a `vscode://` link so you
   /// can ⌘-click straight into the editor. Pass `captureSource: false`
-  /// to opt out (cheap, but not free).
+  /// to opt out (cheap, but not free). Pass [sourceFrameSkip] when this
+  /// call is wrapped by helper utilities and you want the reported source
+  /// to point at the wrapper's caller instead.
   LogEntry add({
     required String message,
     LogLevel level = LogLevel.info,
@@ -134,10 +162,14 @@ class LogSink {
     StackTrace? stackTrace,
     DateTime? timestamp,
     bool captureSource = true,
+    int sourceFrameSkip = 0,
   }) {
     _SourceFrame? source;
     if (captureSource) {
-      source = _firstUserFrame(StackTrace.current);
+      source = _firstUserFrame(
+        StackTrace.current,
+        extraFramesToSkip: sourceFrameSkip,
+      );
     }
     final entry = LogEntry(
       id: _nextId++,
@@ -161,32 +193,48 @@ class LogSink {
   }
 
   /// Shortcut for the common levels.
-  LogEntry trace(String message,
-          {String? category, Map<String, dynamic>? data}) =>
+  LogEntry trace(
+    String message, {
+    String? category,
+    Map<String, dynamic>? data,
+    int sourceFrameSkip = 0,
+  }) =>
       add(
           level: LogLevel.trace,
           message: message,
           category: category,
-          data: data);
-  LogEntry debug(String message,
-          {String? category, Map<String, dynamic>? data}) =>
+          data: data,
+          sourceFrameSkip: sourceFrameSkip);
+  LogEntry debug(
+    String message, {
+    String? category,
+    Map<String, dynamic>? data,
+    int sourceFrameSkip = 0,
+  }) =>
       add(
           level: LogLevel.debug,
           message: message,
           category: category,
-          data: data);
-  LogEntry info(String message,
-          {String? category, Map<String, dynamic>? data}) =>
+          data: data,
+          sourceFrameSkip: sourceFrameSkip);
+  LogEntry info(
+    String message, {
+    String? category,
+    Map<String, dynamic>? data,
+    int sourceFrameSkip = 0,
+  }) =>
       add(
           level: LogLevel.info,
           message: message,
           category: category,
-          data: data);
+          data: data,
+          sourceFrameSkip: sourceFrameSkip);
   LogEntry warn(String message,
           {String? category,
           Map<String, dynamic>? data,
           Object? error,
-          StackTrace? stackTrace}) =>
+          StackTrace? stackTrace,
+          int sourceFrameSkip = 0}) =>
       add(
         level: LogLevel.warn,
         message: message,
@@ -194,12 +242,14 @@ class LogSink {
         data: data,
         error: error,
         stackTrace: stackTrace,
+        sourceFrameSkip: sourceFrameSkip,
       );
   LogEntry error(String message,
           {String? category,
           Map<String, dynamic>? data,
           Object? error,
-          StackTrace? stackTrace}) =>
+          StackTrace? stackTrace,
+          int sourceFrameSkip = 0}) =>
       add(
         level: LogLevel.error,
         message: message,
@@ -207,6 +257,7 @@ class LogSink {
         data: data,
         error: error,
         stackTrace: stackTrace,
+        sourceFrameSkip: sourceFrameSkip,
       );
 
   /// Drop everything. Mainly for tests.

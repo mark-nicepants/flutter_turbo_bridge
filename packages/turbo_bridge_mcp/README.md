@@ -3,9 +3,12 @@
 MCP (Model Context Protocol) server that gives LLMs direct access to running Flutter apps. Connect Claude, Cursor, VS Code Copilot, or any MCP-compatible host to see, understand, and interact with Flutter UIs.
 
 ## What It Does
+
 # Global install for MCP hosts
+
 dart pub global activate turbo_bridge_mcp
-```
+
+````
 
 Or install it per project:
 
@@ -32,7 +35,7 @@ An LLM connected via this server can:
 # Clone the repo (one-time setup)
 git clone https://github.com/mark-nicepants/flutter_turbo_bridge.git
 cd flutter_turbo_bridge && dart pub get --directory=packages/turbo_bridge_mcp
-```
+````
 
 ### Claude Desktop
 
@@ -106,10 +109,12 @@ Add to `.cursor/mcp.json` in your project (committable):
 The bridge server runs inside the app on the device, so `localhost:8888` on the host can't reach it directly. The MCP server **automatically detects** this and sets up ADB port forwarding — no extra configuration needed.
 
 How it works:
+
 1. On startup, the MCP server tries to reach the bridge at `localhost:8888`
 2. If unreachable, it checks for a connected Android device via `adb devices`
 3. If found, it runs `adb forward tcp:8888 tcp:8888` automatically
-4. On exit, it cleans up the forwarding
+4. Once the bridge is reachable, it reads `/info`; if DevTools is enabled, it also forwards the DevTools UI port (for example `adb forward tcp:8889 tcp:8889`)
+5. On exit, it cleans up every port it forwarded
 
 No changes to your MCP config are needed — the same setup works for both desktop and Android.
 
@@ -131,6 +136,7 @@ dart run bin/turbo_bridge_mcp.dart [options]
 Captures the app's current screen as a PNG image.
 
 **Parameters:**
+
 - `pixelRatio` (number, optional) — Device pixel ratio, default 1.0
 - `delayMs` (number, optional) — Wait before capture, default 75ms
 
@@ -141,6 +147,7 @@ Captures the app's current screen as a PNG image.
 Returns the full widget tree as structured JSON.
 
 **Parameters:**
+
 - `depth` (number, optional) — Max tree depth, default 10
 - `x` (number, optional) — Focus X coordinate in logical pixels
 - `y` (number, optional) — Focus Y coordinate in logical pixels
@@ -153,6 +160,7 @@ Returns the full widget tree as structured JSON.
 Injects a tap at exact screen coordinates.
 
 **Parameters:**
+
 - `x` (number, required) — X coordinate
 - `y` (number, required) — Y coordinate
 
@@ -169,6 +177,7 @@ Returns app metadata: screen size, pixel ratio, platform, dark mode, bridge vers
 Searches the widget tree by text, key, or type. Returns matching widgets with their center coordinates for tapping.
 
 **Parameters:**
+
 - `text` (string, optional) — Find by text content
 - `key` (string, optional) — Find by widget key
 - `type` (string, optional) — Find by widget type name
@@ -180,6 +189,7 @@ Searches the widget tree by text, key, or type. Returns matching widgets with th
 Performs a swipe gesture between two points.
 
 **Parameters:**
+
 - `startX` (number, required) — Start X coordinate
 - `startY` (number, required) — Start Y coordinate
 - `endX` (number, required) — End X coordinate
@@ -193,6 +203,7 @@ Performs a swipe gesture between two points.
 Scrolls at a specific position.
 
 **Parameters:**
+
 - `x` (number, required) — Scroll position X
 - `y` (number, required) — Scroll position Y
 - `dy` (number, optional) — Vertical scroll delta (negative = down)
@@ -205,6 +216,7 @@ Scrolls at a specific position.
 Enters text into the currently focused text field.
 
 **Parameters:**
+
 - `text` (string, required) — Text to enter
 - `replace` (boolean, optional) — Replace existing text, default false
 
@@ -217,6 +229,7 @@ Returns recent app-emitted log lines that the app pushed into
 has been doing without hooking into the device's system logs.
 
 **Parameters:**
+
 - `limit` (integer, optional) — Max entries to return (default 50)
 - `level` (string, optional) — Minimum severity: `trace`, `debug`, `info`, `warn`, `error`
 
@@ -228,6 +241,7 @@ Returns recent network calls that the app pushed into
 `TurboBridge.instance.network` from its HTTP client interceptors.
 
 **Parameters:**
+
 - `limit` (integer, optional) — Max calls to return (default 50)
 
 **Returns:** `{ entries: [{ id, timestamp, method, url, status, durationMs, error?, responseBodySize? }], count }`
@@ -260,6 +274,7 @@ Current widget tree snapshot.
 Generates a structured inspection workflow prompt. Useful for guiding an LLM through systematic app exploration.
 
 **Arguments:**
+
 - `focus` (string, optional) — Specific area or feature to focus inspection on
 
 ## Example Conversation

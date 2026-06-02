@@ -174,6 +174,7 @@ class TurboBridge {
       logs: logs,
       network: network,
       includeTimingHeaders: config.includeTimingHeaders,
+      devToolsPortProvider: () => _devToolsServer?.boundPort,
     );
 
     final handler = const shelf.Pipeline()

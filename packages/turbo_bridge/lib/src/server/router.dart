@@ -23,6 +23,7 @@ class BridgeRouter {
   final LogSink? logs;
   final NetworkLog? network;
   final bool includeTimingHeaders;
+  final int? Function()? devToolsPortProvider;
 
   BridgeRouter({
     required this.screenshotService,
@@ -33,6 +34,7 @@ class BridgeRouter {
     this.logs,
     this.network,
     this.includeTimingHeaders = true,
+    this.devToolsPortProvider,
   });
 
   /// The shelf [Handler] for this router.
@@ -171,7 +173,12 @@ class BridgeRouter {
   }
 
   Response _handleInfo(Request request) {
-    final info = appInfoService.getInfo();
+    final info = Map<String, dynamic>.from(appInfoService.getInfo());
+    final devToolsPort = devToolsPortProvider?.call();
+    info['devTools'] = {
+      'enabled': devToolsPort != null,
+      'port': devToolsPort,
+    };
     return Response.ok(
       jsonEncode(info),
       headers: {'content-type': 'application/json'},

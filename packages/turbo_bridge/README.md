@@ -56,11 +56,12 @@ Once running, the bridge exposes these endpoints:
 
 Captures the current frame as PNG bytes.
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `pixelRatio` | `1.0` | Device pixel ratio for the capture |
+| Parameter    | Default | Description                        |
+| ------------ | ------- | ---------------------------------- |
+| `pixelRatio` | `1.0`   | Device pixel ratio for the capture |
 
 **Response**: Raw PNG bytes with headers:
+
 - `content-type: image/png`
 - `x-capture-time-ms: 12`
 - `x-image-width: 1170`
@@ -70,13 +71,13 @@ Captures the current frame as PNG bytes.
 
 Returns the widget tree as JSON.
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `depth` | `10` | Max tree depth |
-| `compact` | `true` | Omit framework-internal widgets |
-| `x` | — | Optional focus X coordinate in logical pixels |
-| `y` | — | Optional focus Y coordinate in logical pixels |
-| `ancestorLevels` | `2` | Ancestors to keep above the focused hit node |
+| Parameter        | Default | Description                                   |
+| ---------------- | ------- | --------------------------------------------- |
+| `depth`          | `10`    | Max tree depth                                |
+| `compact`        | `true`  | Omit framework-internal widgets               |
+| `x`              | —       | Optional focus X coordinate in logical pixels |
+| `y`              | —       | Optional focus Y coordinate in logical pixels |
+| `ancestorLevels` | `2`     | Ancestors to keep above the focused hit node  |
 
 The tree response strips the framework shell wrappers above the app and, when `x`/`y` are provided, returns a smaller local subtree around the deepest widget hit at that coordinate.
 
@@ -85,7 +86,7 @@ The tree response strips the framework shell wrappers above the app and, when `x
 ```json
 {
   "captureTimeMs": 12,
-  "focusPoint": {"x": 220.6, "y": 473.0},
+  "focusPoint": { "x": 220.6, "y": 473.0 },
   "ancestorLevels": 2,
   "rootWidget": {
     "type": "Column",
@@ -104,11 +105,13 @@ The tree response strips the framework shell wrappers above the app and, when `x
 Injects a tap gesture at the given coordinates.
 
 **Body** (JSON):
+
 ```json
 { "x": 195.0, "y": 422.0 }
 ```
 
 **Response**:
+
 ```json
 { "success": true, "executionTimeMs": 3 }
 ```
@@ -118,6 +121,7 @@ Injects a tap gesture at the given coordinates.
 Returns app metadata.
 
 **Response**:
+
 ```json
 {
   "screenWidth": 390.0,
@@ -125,7 +129,11 @@ Returns app metadata.
   "pixelRatio": 3.0,
   "platform": "macos",
   "darkMode": false,
-  "bridgeVersion": "0.1.6"
+  "bridgeVersion": "0.1.6",
+  "devTools": {
+    "enabled": false,
+    "port": null
+  }
 }
 ```
 
@@ -138,11 +146,13 @@ Health check endpoint. Returns `200 OK` when the server is running.
 Injects a swipe gesture between two points.
 
 **Body** (JSON):
+
 ```json
 { "startX": 200, "startY": 600, "endX": 200, "endY": 200, "steps": 10 }
 ```
 
 **Response**:
+
 ```json
 { "success": true, "executionTimeMs": 5 }
 ```
@@ -152,11 +162,13 @@ Injects a swipe gesture between two points.
 Injects a scroll gesture at the given position.
 
 **Body** (JSON):
+
 ```json
 { "x": 200, "y": 400, "dx": 0, "dy": -200, "steps": 5 }
 ```
 
 **Response**:
+
 ```json
 { "success": true, "executionTimeMs": 3 }
 ```
@@ -166,11 +178,13 @@ Injects a scroll gesture at the given position.
 Injects text into the currently focused text field.
 
 **Body** (JSON):
+
 ```json
 { "text": "hello@example.com", "replace": true }
 ```
 
 **Response**:
+
 ```json
 { "success": true, "executionTimeMs": 1 }
 ```
@@ -182,13 +196,17 @@ of widgets from the root down to the most-specific match. Used by the
 DevTools inspector to identify what's under a click on the screenshot.
 
 **Response**:
+
 ```json
 {
   "chain": [
     { "type": "MaterialApp" },
     { "type": "Scaffold", "rect": { "x": 0, "y": 0, "w": 800, "h": 600 } },
-    { "type": "FloatingActionButton", "key": "increment_button",
-      "rect": { "x": 720, "y": 520, "w": 56, "h": 56 } }
+    {
+      "type": "FloatingActionButton",
+      "key": "increment_button",
+      "rect": { "x": 720, "y": 520, "w": 56, "h": 56 }
+    }
   ]
 }
 ```
@@ -209,6 +227,7 @@ Returns recent network calls that the app has pushed into
 Finds widgets by text, key, or type. Returns ranked matches biased toward the visible, tappable UI on the current screen.
 
 **Parameters** (query params or JSON body):
+
 - `text` — Find by text content (substring match, case-insensitive)
 - `key` — Find by ValueKey
 - `type` — Find by widget type name
@@ -221,6 +240,7 @@ Finds widgets by text, key, or type. Returns ranked matches biased toward the vi
 By default the bridge prefers matches that are visible, on the active route, and inside a tappable ancestor.
 
 **Response**:
+
 ```json
 {
   "found": true,
@@ -263,8 +283,10 @@ TurboBridge.start(
 );
 ```
 
-Open `http://localhost:8889/` in your browser. Never enable in a production
-build — DevTools exposes the same mutating endpoints as the JSON API.
+Open `http://localhost:8889/` in your browser. On Android, `turbo_bridge_mcp`
+now forwards that port automatically when DevTools is enabled; without MCP,
+forward it manually with `adb forward tcp:8889 tcp:8889`. Never enable in a
+production build — DevTools exposes the same mutating endpoints as the JSON API.
 
 ### Timeline at a glance
 
@@ -273,13 +295,13 @@ build — DevTools exposes the same mutating endpoints as the JSON API.
 Five horizontal tracks above the time axis, each colored by category and
 clipped so events never visually overlap:
 
-| Row | What it shows |
-|---|---|
-| Network | App-side HTTP calls fed in via `TurboBridge.instance.network`. Pills span the full request duration. |
-| Logs | App-side log lines via `TurboBridge.instance.logs`. Rendered as thin colored bars (sky / emerald / yellow / rose) for a heatmap effect under heavy log volume. |
-| Navigation | Route push / pop / replace events, free when you use `TurboNavigationObserver`. |
-| Errors | Anything pushed at `LogLevel.error`. |
-| Bridge API | Internal JSON-API traffic (MCP, DevTools polling, external clients). **Off by default**; muted slate palette when enabled. |
+| Row        | What it shows                                                                                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Network    | App-side HTTP calls fed in via `TurboBridge.instance.network`. Pills span the full request duration.                                                           |
+| Logs       | App-side log lines via `TurboBridge.instance.logs`. Rendered as thin colored bars (sky / emerald / yellow / rose) for a heatmap effect under heavy log volume. |
+| Navigation | Route push / pop / replace events, free when you use `TurboNavigationObserver`.                                                                                |
+| Errors     | Anything pushed at `LogLevel.error`.                                                                                                                           |
+| Bridge API | Internal JSON-API traffic (MCP, DevTools polling, external clients). **Off by default**; muted slate palette when enabled.                                     |
 
 Below the tracks: a **minimap** of the full retained history with a
 draggable viewport rectangle that controls the visible window. Below
@@ -328,6 +350,11 @@ final bridge = TurboBridge.instance;
 
 // 1) Logs (sky / emerald / yellow / rose by level).
 bridge.logs.info('User signed in', category: 'auth', data: {'userId': '123'});
+bridge.logs.info('Wrapped log', sourceFrameSkip: 1);
+
+`sourceFrameSkip` is optional and useful when your app logs through a helper
+function; it skips that many extra user frames so DevTools links point at the
+real caller.
 bridge.logs.warn('Slow image decode', category: 'render');
 bridge.logs.error('Refresh failed', category: 'api', error: e, stackTrace: st);
 
@@ -368,16 +395,19 @@ self-contained `index.html` (~50 KB / 14 KB gzip) that ships as a
 Flutter asset and is loaded once at server start via `rootBundle`.
 
 Run locally during UI hacking:
+
 ```bash
 cd packages/turbo_bridge/devtools_ui
 npm install
 npm run dev   # Vite dev server with HMR + a fake "mock device" attached
 ```
+
 The mock device stubs `fetch` + `EventSource` to stream plausible logs,
 network calls, and route changes, so you can iterate on the UI without
 a Flutter app running.
 
 For a production rebuild:
+
 ```bash
 melos run build:devtools     # from the repo root
 ```
@@ -422,12 +452,12 @@ The bridge runs an in-process HTTP server using [shelf](https://pub.dev/packages
 
 All operations target sub-20ms in-process latency:
 
-| Operation | In-process (p95) |
-|-----------|-----------------|
-| Screenshot | <20ms |
-| Widget tree | <15ms |
-| Tap | <10ms |
-| App info | <1ms |
+| Operation   | In-process (p95) |
+| ----------- | ---------------- |
+| Screenshot  | <20ms            |
+| Widget tree | <15ms            |
+| Tap         | <10ms            |
+| App info    | <1ms             |
 
 ## Testing
 
