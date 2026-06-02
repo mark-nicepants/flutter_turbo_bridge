@@ -23,17 +23,17 @@ dependencies:
   shelf: ^1.4.0
   shelf_web_socket: ^3.0.0
   web_socket_channel: ^3.0.0
+  # Adapters under `lib/interceptors/` import these. They are only
+  # pulled into a host app's build when that app actually imports the
+  # adapter entry point, but pub.dev requires every `lib/` import to
+  # come from `dependencies` (not `dev_dependencies`).
+  dio: ^5.0.0
+  http: ^1.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.0
-  # Optional integration deps — used only by the adapter files under
-  # `lib/interceptors/`. They live in dev_dependencies so this package
-  # can build and test against them, but consumers must add the
-  # adapter they want to their own pubspec.yaml.
-  dio: ^5.0.0
-  http: ^1.0.0
 
 flutter:
   assets:

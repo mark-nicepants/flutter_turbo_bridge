@@ -27,10 +27,6 @@
 /// ```
 library;
 
-// `http` is intentionally a dev_dependency — consumers add it to their
-// own pubspec when they want to use this adapter.
-// ignore_for_file: depend_on_referenced_packages
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';

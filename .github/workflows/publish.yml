@@ -9,6 +9,11 @@
 # publishing from GitHub Actions.
 #
 # Triggered manually or on version tag push after main-branch CI is green.
+# The dry-run step always runs first so we catch packaging errors before
+# touching pub.dev. On workflow_dispatch the `dry-run` input can be set to
+# `false` to follow the dry-run with a real publish; tag pushes always
+# publish after the dry-run succeeds.
+#
 # Packages are published in dependency order:
 #   1. turbo_bridge_client (no internal deps)
 #   2. turbo_bridge (no internal deps)
@@ -22,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Dry run (no actual publish)'
+        description: 'Dry run only (skip real publish)'
         type: boolean
         default: true
 
@@ -46,7 +51,6 @@ jobs:
         uses: dart-lang/setup-dart@v1
 
       - name: Dry run publish
-        if: ${{ github.event.inputs.dry-run == 'true' || github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run != 'false' }}
         run: melos publish --dry-run --yes
 
       - name: Publish to pub.dev
