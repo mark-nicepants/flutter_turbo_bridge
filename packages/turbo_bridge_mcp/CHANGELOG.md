@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
 
 - DevTools UI: reorganized the network detail into a primary
   Request / Response / Curl nav plus a secondary Headers / Params / Body nav

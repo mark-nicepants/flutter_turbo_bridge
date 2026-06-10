@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
 
 - Fixed `TurboBridgeHttpInterceptor` triggering `Bad state: Can't finalize a
   finalized Request` when a `RetryPolicy` retries the request (e.g. a

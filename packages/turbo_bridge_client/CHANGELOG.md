@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Tracks turbo_bridge `0.3.1` for the bridgeVersion field in fixtures.
+  No client API changes.
+
 ## 0.3.0
 
 - Tracks turbo_bridge `0.3.0` for the bridgeVersion field in fixtures.
