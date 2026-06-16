@@ -13,9 +13,10 @@
 /// ```
 library;
 
+export 'interceptors/dio.dart' show TurboBridgeDioInterceptor;
+export 'interceptors/http.dart' show TurboBridgeHttpInterceptor;
 export 'src/bridge.dart';
 export 'src/bridge_config.dart';
-export 'src/version.dart' show turboBridgeVersion;
 export 'src/devtools/log_sink.dart' show LogSink, LogEntry, LogLevel;
 export 'src/devtools/navigation_log.dart' show NavigationLog, NavigationEntry;
 export 'src/devtools/network_log.dart'
@@ -27,3 +28,4 @@ export 'src/services/find_service.dart';
 export 'src/services/gesture_service.dart';
 export 'src/services/screenshot_service.dart';
 export 'src/services/widget_tree_service.dart';
+export 'src/version.dart' show turboBridgeVersion;

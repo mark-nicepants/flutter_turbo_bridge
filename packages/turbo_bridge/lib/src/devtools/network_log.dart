@@ -234,11 +234,24 @@ class InFlightNetworkCall {
   }
 
   /// Record a failed request (network error, timeout, etc) and finalize.
-  void fail(Object error, {int? status}) {
+  ///
+  /// Some clients (such as Dio) route HTTP 4xx/5xx through their error
+  /// callback while still exposing a response body. In that case pass the
+  /// optional response fields so DevTools can show the server error payload.
+  void fail(
+    Object error, {
+    int? status,
+    Map<String, String>? responseHeaders,
+    String? responseBody,
+    int? responseBodySize,
+  }) {
     if (_done) return;
     _done = true;
     _entry
       ..status = status
+      ..responseHeaders = responseHeaders
+      ..responseBody = responseBody
+      ..responseBodySize = responseBodySize ?? responseBody?.length
       ..durationMs = DateTime.now().difference(_startedAt).inMilliseconds
       ..error = error.toString()
       ..inFlight = false;

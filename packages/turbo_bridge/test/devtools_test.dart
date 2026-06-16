@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 // same-named types used by the router tests below.
 import 'package:http_interceptor/http_interceptor.dart' hide Request, Response;
 import 'package:shelf/shelf.dart';
-import 'package:turbo_bridge/interceptors/http.dart';
 import 'package:turbo_bridge/src/devtools/devtools_api.dart';
 import 'package:turbo_bridge/src/devtools/event_bus.dart';
 import 'package:turbo_bridge/src/devtools/request_log.dart';
@@ -441,6 +440,25 @@ void main() {
       final inflight = net.start(method: 'GET', url: 'x');
       inflight.fail(Exception('boom'));
       expect(net.snapshot().single.error, contains('boom'));
+      bus.close();
+    });
+
+    test('start + fail can include response details', () {
+      final bus = DevToolsEventBus();
+      final net = NetworkLog(bus: bus);
+      final inflight = net.start(method: 'POST', url: 'x');
+      inflight.fail(
+        Exception('bad request'),
+        status: 400,
+        responseHeaders: {'content-type': 'application/json'},
+        responseBody: '{"error":"invalid"}',
+      );
+      final call = net.snapshot().single;
+      expect(call.status, 400);
+      expect(call.error, contains('bad request'));
+      expect(call.responseHeaders, {'content-type': 'application/json'});
+      expect(call.responseBody, '{"error":"invalid"}');
+      expect(call.responseBodySize, '{"error":"invalid"}'.length);
       bus.close();
     });
 
