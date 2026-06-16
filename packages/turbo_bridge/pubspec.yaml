@@ -1,6 +1,6 @@
 name: turbo_bridge
 description: In-app companion server for ultra-fast Flutter AI interaction. Exposes HTTP/WebSocket endpoints for screenshots, widget tree inspection, and gesture injection.
-version: 0.3.1
+version: 0.3.2
 resolution: workspace
 homepage: https://github.com/mark-nicepants/flutter_turbo_bridge/tree/main/packages/turbo_bridge
 repository: https://github.com/mark-nicepants/flutter_turbo_bridge

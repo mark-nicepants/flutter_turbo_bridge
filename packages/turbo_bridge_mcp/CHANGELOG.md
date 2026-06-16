@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- Tracks turbo_bridge `0.3.2` for version compatibility checks.
+  No MCP server changes.
+
 ## 0.3.1
 
 - DevTools UI: reorganized the network detail into a primary

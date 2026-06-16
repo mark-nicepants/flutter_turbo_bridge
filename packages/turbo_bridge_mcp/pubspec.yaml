@@ -1,6 +1,6 @@
 name: turbo_bridge_mcp
 description: MCP server for Flutter Turbo Bridge — exposes Flutter app interaction tools to LLM hosts via the Model Context Protocol.
-version: 0.3.1
+version: 0.3.2
 resolution: workspace
 homepage: https://github.com/mark-nicepants/flutter_turbo_bridge/tree/main/packages/turbo_bridge_mcp
 repository: https://github.com/mark-nicepants/flutter_turbo_bridge

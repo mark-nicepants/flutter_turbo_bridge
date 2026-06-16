@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Enhanced network logging in DevTools with JSON pretty-printing for readable request/response payloads.
+- DevTools now captures error response bodies for HTTP 4xx/5xx errors in the network timeline.
+- Added structured FormData serialization in network logs showing individual fields and files.
+
 ## 0.3.1
 
 - Fixed `TurboBridgeHttpInterceptor` triggering `Bad state: Can't finalize a
