@@ -1092,15 +1092,20 @@ function updateMinimap() {
   // Ensure a mark exists for every eligible event; position it.
   for (const ev of state.events) {
     if (!state.enabledCategories.has(ev.category)) continue;
+    const colorCls = miniColorCls(ev);
     let node = cache.get(ev.id);
     if (!node) {
-      node = el(
-        'div',
-        `absolute w-[2px] ${miniColorCls(ev)} pointer-events-none`,
-      );
+      node = el('div', `absolute w-[2px] ${colorCls} pointer-events-none`);
       node.style.height = '7px';
+      node.dataset['color'] = colorCls;
       cache.set(ev.id, node);
       trackEl.insertBefore(node, viewportEl);
+    } else if (node.dataset['color'] !== colorCls) {
+      // The colour is baked into the class at creation; refresh it when the
+      // event's status changes — e.g. an in-flight call resolving from yellow
+      // to green/red — so the scrubber mark tracks the timeline pill.
+      node.className = `absolute w-[2px] ${colorCls} pointer-events-none`;
+      node.dataset['color'] = colorCls;
     }
     const leftPct = ((ev.timestamp - minimapMStart) / minimapMDur) * 100;
     node.style.left = `${leftPct}%`;
@@ -1122,6 +1127,14 @@ function updateMinimap() {
 
 // ---------- Event list (incremental, scroll-preserving) ----------
 
+// A row bakes in the status-dot colour, duration and label. When any of
+// those change — most commonly an in-flight network call finalizing
+// (status warn→ok/failed, duration filled in) — the cached row must be
+// rebuilt rather than reused. This signature captures the mutable bits.
+function eventRowSig(ev: TimelineEvent): string {
+  return `${ev.status}|${ev.durationMs ?? ''}|${ev.label}`;
+}
+
 function updateEventList() {
   const listEl = ui!.eventListEl;
   const emptyEl = ui!.eventListEmptyEl;
@@ -1141,6 +1154,17 @@ function updateEventList() {
     }
   }
 
+  // Drop rows whose rendered content changed (e.g. an in-flight call
+  // finalized: status-dot colour + duration now differ). Removing them here
+  // lets the insert loop below recreate them in their correct position.
+  for (const ev of visible) {
+    const row = cache.get(ev.id);
+    if (row && row.dataset['sig'] !== eventRowSig(ev)) {
+      row.remove();
+      cache.delete(ev.id);
+    }
+  }
+
   // Insert/move rows into the correct order. We iterate `visible` and
   // re-attach existing rows in order using insertBefore — this is O(n)
   // and DOM moves are cheap; far better than full innerHTML rebuilds
@@ -1150,6 +1174,7 @@ function updateEventList() {
     let row = cache.get(ev.id);
     if (!row) {
       row = buildEventRow(ev);
+      row.dataset['sig'] = eventRowSig(ev);
       cache.set(ev.id, row);
     }
     if (row !== cursor) {
