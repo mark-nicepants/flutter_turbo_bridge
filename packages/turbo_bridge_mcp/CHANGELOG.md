@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+- DevTools bundle updated to include the finished-request colour fix from turbo_bridge `0.3.3`.
+  No MCP server changes.
+
 ## 0.3.2
 
 - Tracks turbo_bridge `0.3.2` for version compatibility checks.

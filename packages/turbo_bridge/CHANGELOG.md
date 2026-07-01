@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- DevTools UI: fixed the colour of finished request rows in the timeline and log view.
+
 ## 0.3.2
 
 - Enhanced network logging in DevTools with JSON pretty-printing for readable request/response payloads.

@@ -253,7 +253,7 @@ void main() {
               'platform': 'ios',
               'darkMode': false,
               'currentRoute': '/home',
-              'bridgeVersion': '0.3.0',
+              'bridgeVersion': '0.3.3',
               'locale': 'en_US',
             }),
             200,
@@ -273,7 +273,7 @@ void main() {
         expect(info.pixelRatio, 3.0);
         expect(info.platform, 'ios');
         expect(info.darkMode, isFalse);
-        expect(info.bridgeVersion, '0.3.0');
+        expect(info.bridgeVersion, '0.3.3');
       });
     });
   });
