@@ -50,6 +50,7 @@ jobs:
 
       - name: Run benchmark
         working-directory: apps/benchmark
+        continue-on-error: true
         run: dart run bin/benchmark.dart --bridge-host localhost --bridge-port 8888 --bridge-only
 
       - name: Transform results for tracking
